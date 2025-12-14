@@ -2,19 +2,19 @@
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
     <title>Fadogen Updates</title>
-    <link>https://fouteox.github.io/Fadogen/appcast.xml</link>
+    <link>https://fouteox.github.io/fadogen-app/appcast.xml</link>
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
     <item>
       <title>Version 1.0</title>
       <description><![CDATA[]]></description>
-      <pubDate>Sat, 13 Dec 2025 19:04:10 +0000</pubDate>
+      <pubDate>Sun, 14 Dec 2025 09:18:29 +0000</pubDate>
       <sparkle:version>1</sparkle:version>
       <sparkle:shortVersionString>1.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
       <enclosure url="https://github.com/fouteox/fadogen-app/releases/download/v1.0.0-alpha.1/Fadogen-v1.0.0-alpha.1.dmg"
-                 sparkle:edSignature="6YqYWS3qS3XQYnAFdPajVhvJQGzSAfZ9NsnCazqnYg+ddMu4a07jXk96mrWUYMEZyxWHyrIyN3/JkOG2bW9vCA=="
-                 length="6YqYWS3qS3XQYnAFdPajVhvJQGzSAfZ9NsnCazqnYg+ddMu4a07jXk96mrWUYMEZyxWHyrIyN3/JkOG2bW9vCA=="
+                 sparkle:edSignature="XG7JJcUKSiJUJVzzjZaXCk8XW0Hx2BqiysLp7/2F7ztIThsFrCib9Wge+MZJCwPCxSEQKzZGIShzJZ1YSd9/CQ=="
+                 length="232694941"
                  type="application/octet-stream"/>
     </item>
   </channel>
