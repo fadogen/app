@@ -9,13 +9,13 @@
       <title>Version 1.0</title>
       <sparkle:channel>beta</sparkle:channel>
       <description><![CDATA[]]></description>
-      <pubDate>Sun, 14 Dec 2025 10:14:46 +0000</pubDate>
+      <pubDate>Sun, 14 Dec 2025 11:04:37 +0000</pubDate>
       <sparkle:version>1</sparkle:version>
       <sparkle:shortVersionString>1.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-      <enclosure url="https://github.com/fouteox/fadogen-app/releases/download/v1.0.0-alpha.1/Fadogen-v1.0.0-alpha.1.dmg"
-                 sparkle:edSignature="nYZ6SeERXuLHxqEV8GKIkbOOReL3pO6ZrtDjKMz3xf8Gbl9aoW41nNmVdEoSmNK18sS7TQHDyXZiMVsiYyGaDQ=="
-                 length="232702226"
+      <enclosure url="https://github.com/fouteox/fadogen-app/releases/download/v1.0.0-alpha.2/Fadogen-v1.0.0-alpha.2.dmg"
+                 sparkle:edSignature="v7S811A1Xjc2op3Zppb7QdZbVJ5lCpaefkBKoTwcj3LOzK2f4FvfXA58JZUjQmpr9b15/VnGsidkTMNHhGDiCA=="
+                 length="232700719"
                  type="application/octet-stream"/>
     </item>
   </channel>
