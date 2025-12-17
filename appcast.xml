@@ -6,16 +6,16 @@
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
     <item>
-      <title>Version 1.0.0-alpha.4</title>
+      <title>Version 1.0.0-alpha.5</title>
       <sparkle:channel>beta</sparkle:channel>
       <description><![CDATA[]]></description>
-      <pubDate>Wed, 17 Dec 2025 11:34:25 +0000</pubDate>
-      <sparkle:version>20</sparkle:version>
-      <sparkle:shortVersionString>1.0.0-alpha.4</sparkle:shortVersionString>
+      <pubDate>Wed, 17 Dec 2025 13:26:09 +0000</pubDate>
+      <sparkle:version>22</sparkle:version>
+      <sparkle:shortVersionString>1.0.0-alpha.5</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-      <enclosure url="https://github.com/fouteox/fadogen-app/releases/download/v1.0.0-alpha.4/Fadogen-v1.0.0-alpha.4.dmg"
-                 sparkle:edSignature="mVAeGG36bvM9OmEiTf1fmfEu5Dzv3HXt3Y0dKCCMqtO2fcpRYqOnZSkZTOUr1/czuOdORjfMTMkh95qqsmnVCQ=="
-                 length="234633406"
+      <enclosure url="https://github.com/fouteox/fadogen-app/releases/download/v1.0.0-alpha.5/Fadogen-v1.0.0-alpha.5.dmg"
+                 sparkle:edSignature="UX0qI9TY96mdWm5tsW6vC74l3KmkluC9H9IAkqfIb89IiTVRhKwMq3gXyH8Dr5qT0urPRD41J+ivbeIOvGQxCA=="
+                 length="234634964"
                  type="application/octet-stream"/>
     </item>
   </channel>
