@@ -10,7 +10,7 @@
 				<string>arm64</string>
 			</array>
 			<key>buildNumber</key>
-			<string>22</string>
+			<string>23</string>
 			<key>certificate</key>
 			<dict>
 				<key>SHA1</key>
@@ -724,8 +724,6 @@
 			<dict>
 				<key>com.apple.application-identifier</key>
 				<string>G9BR433264.app.fadogen.Fadogen</string>
-				<key>com.apple.developer.aps-environment</key>
-				<string>production</string>
 				<key>com.apple.developer.icloud-container-environment</key>
 				<string>Production</string>
 				<key>com.apple.developer.icloud-container-identifiers</key>
@@ -758,7 +756,7 @@
 				<string></string>
 			</dict>
 			<key>versionNumber</key>
-			<string>1.0.0-alpha.5</string>
+			<string>1.0.0-alpha.6</string>
 		</dict>
 	</array>
 </dict>
