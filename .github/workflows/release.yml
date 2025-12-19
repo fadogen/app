@@ -1,8 +1,9 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
@@ -164,7 +165,7 @@ jobs:
 
           # Re-sign the app to update the seal (preserve entitlements from Xcode export)
           cd "$RUNNER_TEMP/Export"
-          codesign --force --deep --sign "Developer ID Application" \
+          codesign --force --sign "Developer ID Application" \
             --keychain "$KEYCHAIN_PATH" \
             --options runtime \
             --preserve-metadata=entitlements \
@@ -214,11 +215,36 @@ jobs:
 
           xcrun stapler staple "$APP_NAME-${{ github.ref_name }}.dmg"
 
+      - name: Create GitHub Release (Draft)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd "$RUNNER_TEMP/Export"
+
+          # Detect pre-release from tag name (alpha, beta, rc)
+          if [[ "${{ github.ref_name }}" =~ (alpha|beta|rc) ]]; then
+            PRERELEASE_FLAG="--prerelease"
+          else
+            PRERELEASE_FLAG=""
+          fi
+
+          # Create as draft - will be published after all steps succeed
+          gh release create "${{ github.ref_name }}" \
+            "$APP_NAME-${{ github.ref_name }}.dmg" \
+            --title "${{ github.ref_name }}" \
+            --generate-notes \
+            --draft \
+            $PRERELEASE_FLAG
+
       - name: Sign with Sparkle EdDSA and Generate Appcast
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd "$RUNNER_TEMP/Export"
+
+          # Fetch release notes from the created release
+          RELEASE_BODY=$(gh release view "${{ github.ref_name }}" --json body -q .body)
 
           # Debug: verify DMG exists
           ls -la "$APP_NAME-${{ github.ref_name }}.dmg"
@@ -244,7 +270,7 @@ jobs:
           DMG_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/$APP_NAME-${{ github.ref_name }}.dmg"
 
           # Set channel for pre-releases (alpha, beta, rc)
-          if [[ "${{ github.event.release.prerelease }}" == "true" ]]; then
+          if [[ "${{ github.ref_name }}" =~ (alpha|beta|rc) ]]; then
             CHANNEL_TAG="<sparkle:channel>beta</sparkle:channel>"
           else
             CHANNEL_TAG=""
@@ -262,7 +288,7 @@ jobs:
               <item>
                 <title>Version $VERSION</title>
                 $CHANNEL_TAG
-                <description><![CDATA[${{ github.event.release.body }}]]></description>
+                <description><![CDATA[$RELEASE_BODY]]></description>
                 <pubDate>$PUB_DATE</pubDate>
                 <sparkle:version>$BUILD</sparkle:version>
                 <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
@@ -279,13 +305,6 @@ jobs:
           echo "Generated appcast.xml:"
           cat appcast.xml
 
-      - name: Upload DMG to Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ runner.temp }}/Export/${{ env.APP_NAME }}-${{ github.ref_name }}.dmg
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Deploy Appcast to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
@@ -293,6 +312,12 @@ jobs:
           publish_dir: ${{ runner.temp }}/Export
           keep_files: true
           exclude_assets: "*.app,*.zip,*.dmg"
+
+      - name: Publish Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release edit "${{ github.ref_name }}" --draft=false
 
       - name: Cleanup
         if: always()
