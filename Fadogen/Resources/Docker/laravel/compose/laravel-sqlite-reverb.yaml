@@ -1,0 +1,5 @@
+---
+services:
+  reverb:
+    volumes:
+      - 'stack-sqlite:/var/www/html/storage/database'

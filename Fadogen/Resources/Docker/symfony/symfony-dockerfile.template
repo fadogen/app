@@ -1,0 +1,71 @@
+ARG PHP_VERSION={{PHP_VERSION}}
+
+############################################
+# Base Stage
+############################################
+FROM serversideup/php:${PHP_VERSION}-frankenphp AS base
+
+USER root
+
+RUN install-php-extensions bcmath intl
+
+COPY --link --chmod=755 docker/entrypoint.d/ /etc/entrypoint.d/
+
+############################################
+# Builder Stage
+############################################
+FROM base AS builder
+
+COPY --link composer.json composer.lock ./
+
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --no-autoloader \
+    --no-ansi \
+    --no-scripts \
+    --audit
+
+COPY --link . .
+
+RUN composer dump-autoload --classmap-authoritative --no-dev
+
+ARG ENV_HASH
+RUN --mount=type=secret,id=dotenv \
+    echo "Build with ENV_HASH=${ENV_HASH}" && \
+    set -a && . /run/secrets/dotenv && set +a && \
+    mkdir -p public/bundles && \
+{{#IF HAS_ASSET_MAPPER}}    php bin/console importmap:install --env=prod && \
+{{/IF}}    php bin/console cache:clear --env=prod && \
+    php bin/console assets:install public --env=prod
+
+############################################
+# App Image
+############################################
+FROM base AS app
+
+COPY --link --chown=33:33 --from=builder /var/www/html/vendor ./vendor
+
+COPY --link --chown=33:33 . .
+
+COPY --link --chown=33:33 --from=builder /var/www/html/var/cache/prod ./var/cache/prod
+
+COPY --link --chown=33:33 --from=builder /var/www/html/public/bundles ./public/bundles
+{{#IF HAS_ASSET_MAPPER}}
+
+COPY --link --chown=33:33 --from=builder /var/www/html/assets/vendor ./assets/vendor
+{{/IF}}
+
+RUN mkdir -p \
+    var/cache \
+    var/log \
+    var/sessions \
+    && chown -R www-data:www-data var
+{{#IF HAS_SQLITE}}
+
+RUN mkdir -p var/data \
+    && touch var/data/database.sqlite \
+    && chown -R www-data:www-data var/data
+{{/IF}}
+
+USER www-data

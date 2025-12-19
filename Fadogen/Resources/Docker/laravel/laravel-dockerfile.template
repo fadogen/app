@@ -1,0 +1,95 @@
+ARG PHP_VERSION={{PHP_VERSION}}
+
+############################################
+# Base Stage
+############################################
+FROM serversideup/php:${PHP_VERSION}-frankenphp AS base
+
+USER root
+
+RUN install-php-extensions bcmath intl
+
+############################################
+# Builder Stage
+############################################
+FROM base AS builder
+{{#IF IS_BUN}}
+COPY --from=oven/bun:{{BUN_VERSION}}-debian /usr/local/bin/bun /usr/local/bin/bun
+{{/IF}}
+{{#IF IS_NPM}}
+COPY --from=node:{{NODE_VERSION}}-bookworm-slim /usr/local/bin/node /usr/local/bin/node
+COPY --from=node:{{NODE_VERSION}}-bookworm-slim /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=node:{{NODE_VERSION}}-bookworm-slim /usr/local/include/node /usr/local/include/node
+
+RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
+    ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
+{{/IF}}
+
+COPY --link composer.json composer.lock ./
+
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --no-autoloader \
+    --no-ansi \
+    --no-scripts \
+    --audit
+
+COPY --link {{PACKAGE_FILES}} ./
+
+RUN {{INSTALL_COMMAND}}
+
+COPY --link . .
+
+RUN composer dump-autoload --classmap-authoritative --no-dev
+
+ARG ENV_HASH
+RUN --mount=type=secret,id=dotenv \
+    echo "Build with ENV_HASH=${ENV_HASH}" && \
+    set -a && . /run/secrets/dotenv && set +a && \
+    {{BUILD_COMMAND}}
+
+############################################
+# App Image
+############################################
+FROM base AS app
+
+COPY --link --chown=33:33 --from=builder /var/www/html/vendor ./vendor
+
+COPY --link --chown=33:33 . .
+
+COPY --link --chown=33:33 --from=builder /var/www/html/public/build ./public/build
+
+RUN mkdir -p \
+    storage/logs \
+    storage/app/public \
+    storage/framework/cache \
+    storage/framework/sessions \
+    storage/framework/views \
+    bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache
+{{#IF HAS_SQLITE}}
+
+RUN mkdir -p storage/database \
+    && touch storage/database/database.sqlite \
+    && chown -R www-data:www-data storage/database
+{{/IF}}
+
+USER www-data
+{{#IF HAS_SSR}}
+
+############################################
+# SSR Image
+############################################
+FROM {{SSR_IMAGE}} AS ssr
+
+WORKDIR /app
+
+COPY --from=builder /var/www/html/bootstrap/ssr ./bootstrap/ssr
+
+COPY --from=builder /var/www/html/node_modules ./node_modules
+
+EXPOSE 13714
+
+CMD {{SSR_CMD}}
+{{/IF}}

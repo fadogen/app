@@ -1,0 +1,112 @@
+---
+# Cloudflare requires email + Global API Key (2 secrets)
+
+- name: Remove existing Cloudflare email secret
+  community.docker.docker_secret:
+    name: cloudflare_email
+    state: absent
+  when:
+    - provider_name == "cloudflare"
+    - provider_email is defined
+  ignore_errors: true
+
+- name: Remove existing Cloudflare API key secret
+  community.docker.docker_secret:
+    name: cloudflare_key
+    state: absent
+  when:
+    - provider_name == "cloudflare"
+    - provider_key is defined
+  ignore_errors: true
+
+- name: Create Cloudflare email secret
+  community.docker.docker_secret:
+    name: cloudflare_email
+    data: "{{ provider_email }}"
+    state: present
+  no_log: true
+  when:
+    - provider_name == "cloudflare"
+    - provider_email is defined
+
+- name: Create Cloudflare API key secret
+  community.docker.docker_secret:
+    name: cloudflare_key
+    data: "{{ provider_key }}"
+    state: present
+  no_log: true
+  when:
+    - provider_name == "cloudflare"
+    - provider_key is defined
+
+# Other providers use single token
+
+- name: Remove existing DNS provider secret
+  community.docker.docker_secret:
+    name: "{{ provider_name }}_token"
+    state: absent
+  when:
+    - provider_name is defined
+    - provider_name != "cloudflare"
+    - provider_token is defined
+  ignore_errors: true
+
+- name: Create DNS provider secret
+  community.docker.docker_secret:
+    name: "{{ provider_name }}_token"
+    data: "{{ provider_token }}"
+    state: present
+  no_log: true
+  when:
+    - provider_name is defined
+    - provider_name != "cloudflare"
+    - provider_token is defined
+
+# Deploy compose file and restart Traefik with new config
+# We do this DIRECTLY here instead of using handlers because:
+# 1. Docker configs are immutable - we must stop services first
+# 2. Handler mechanism with include_tasks has reliability issues
+# 3. Direct execution guarantees correct order
+
+- name: Deploy Traefik compose file
+  template:
+    src: traefik-compose.yaml.j2
+    dest: "/home/{{ ansible_user }}/traefik/compose.yaml"
+    mode: '0644'
+  register: compose_result
+
+# Restart Traefik stack when compose or config needs updating
+- name: Remove Traefik stack for config update
+  community.docker.docker_stack:
+    name: traefik
+    state: absent
+
+- name: Wait for Traefik services to be fully removed
+  ansible.builtin.shell: docker service ls --filter label=com.docker.stack.namespace=traefik -q
+  register: traefik_services
+  until: traefik_services.stdout == ""
+  retries: 30
+  delay: 2
+  changed_when: false
+
+- name: Remove old Traefik config
+  community.docker.docker_config:
+    name: traefik_static
+    state: absent
+  register: config_result
+  until: config_result is success
+  retries: 30
+  delay: 2
+
+- name: Create new Traefik config
+  community.docker.docker_config:
+    name: traefik_static
+    data: "{{ lookup('template', 'traefik-static.yaml.j2') }}"
+    state: present
+
+- name: Redeploy Traefik stack
+  community.docker.docker_stack:
+    name: traefik
+    compose:
+      - "/home/{{ ansible_user }}/traefik/compose.yaml"
+    state: present

@@ -1,0 +1,34 @@
+---
+# Ansible Role: cloudflared
+# Service configuration tasks - token-based approach
+
+- name: Check if cloudflared service file exists
+  ansible.builtin.stat:
+    path: /etc/systemd/system/cloudflared.service
+  register: cloudflared_service_file
+
+- name: Uninstall existing cloudflared service if present
+  ansible.builtin.command: cloudflared service uninstall
+  when: cloudflared_service_file.stat.exists
+  register: service_uninstall
+  failed_when: false
+  changed_when: service_uninstall.rc == 0
+
+- name: Install cloudflared tunnel service with token
+  ansible.builtin.command: >
+    cloudflared service install "{{ tunnel_token }}"
+  args:
+    creates: /etc/systemd/system/cloudflared.service
+  no_log: false
+  register: service_install
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: yes
+  when: service_install is changed
+
+- name: Ensure cloudflared service is started and enabled
+  ansible.builtin.systemd:
+    name: cloudflared
+    state: started
+    enabled: yes

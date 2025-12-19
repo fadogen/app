@@ -1,0 +1,58 @@
+---
+services:
+  app:
+    image: ${IMAGE_NAME:-app}:latest
+    build:
+      target: app
+    secrets:
+      - source: laravel_env
+        target: /var/www/html/.env
+        uid: "33"
+        gid: "33"
+        mode: 0440
+    ulimits:
+      nofile:
+        soft: 20000
+        hard: 40000
+    volumes:
+      - 'storage_private:/var/www/html/storage/app/private'
+      - 'storage_public:/var/www/html/storage/app/public'
+      - 'storage_sessions:/var/www/html/storage/framework/sessions'
+      - 'storage_logs:/var/www/html/storage/logs'
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: "50m"
+        max-file: "6"
+    environment:
+      AUTORUN_ENABLED: "true"
+      PHP_OPCACHE_ENABLE: "1"
+      HEALTHCHECK_PATH: "/up"
+    networks:
+      - internal
+      - proxy
+    healthcheck:
+      start_period: 90s
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    deploy:
+      replicas: 1
+      update_config:
+        failure_action: rollback
+        parallelism: 1
+        delay: 5s
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        order: stop-first
+      restart_policy:
+        condition: any
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      labels:
+        - "traefik.enable=true"
+        - "traefik.swarm.lbswarm=true"
+        - "traefik.swarm.network=proxy"
+        - "traefik.http.routers.{{PROJECT_NAME}}.rule=Host(`${APP_HOST}`)"

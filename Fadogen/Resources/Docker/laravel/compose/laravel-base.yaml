@@ -1,0 +1,22 @@
+---
+services:
+  backup:
+    volumes:
+      - storage_logs:/backup/logs:ro
+
+volumes:
+  storage_private:
+  storage_public:
+  storage_sessions:
+  storage_logs:
+  backup_dumps:
+
+networks:
+  internal:
+  proxy:
+    external: true
+
+secrets:
+  laravel_env:
+    file: .env.production
+    name: laravel_env_${ENV_HASH:-latest}

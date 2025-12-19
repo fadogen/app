@@ -1,0 +1,28 @@
+---
+services:
+  ssr:
+    image: ${IMAGE_NAME:-app}:ssr
+    build:
+      target: ssr
+    networks:
+      - internal
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: "50m"
+        max-file: "6"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:13714/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 2
+    deploy:
+      replicas: 1
+      update_config:
+        failure_action: rollback
+        order: start-first
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 3

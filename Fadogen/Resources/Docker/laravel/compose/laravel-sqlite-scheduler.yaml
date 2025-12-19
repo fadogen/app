@@ -1,0 +1,5 @@
+---
+services:
+  scheduler:
+    volumes:
+      - 'stack-sqlite:/var/www/html/storage/database'

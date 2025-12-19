@@ -1,0 +1,14 @@
+---
+# Fadogen Tunnel Connection Test
+# Validates SSH connectivity via Cloudflare Tunnel
+
+- name: Test Tunnel SSH Connection
+  hosts: all
+  become: false
+  gather_facts: false
+
+  tasks:
+    - name: Verify SSH connection works
+      ansible.builtin.command: echo "tunnel_test_ok"
+      changed_when: false
+      register: tunnel_test

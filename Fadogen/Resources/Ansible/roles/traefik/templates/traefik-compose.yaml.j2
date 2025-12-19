@@ -1,0 +1,78 @@
+services:
+  traefik:
+    image: traefik:3.6
+
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      update_config:
+        order: stop-first
+
+    ports:
+      - target: 80
+        published: 80
+        mode: host
+{% if not (has_cloudflare_tunnel | default(false) | bool) %}
+      - target: 443
+        published: 443
+        mode: host
+{% endif %}
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+{% if not (has_cloudflare_tunnel | default(false) | bool) %}
+      - /home/{{ ansible_user }}/traefik/acme:/etc/traefik/acme
+{% endif %}
+
+    configs:
+      - source: traefik_static
+        target: /etc/traefik/traefik.yaml
+
+{% if providers is defined and providers | length > 0 %}
+    environment:
+{% for provider in providers %}
+{% if provider == 'cloudflare' %}
+      - {{ cloudflare_env_vars.email }}_FILE=/run/secrets/cloudflare_email
+      - {{ cloudflare_env_vars.key }}_FILE=/run/secrets/cloudflare_key
+{% else %}
+      - {{ dns_provider_env_vars[provider] | default('DNS_API_TOKEN') }}_FILE=/run/secrets/{{ provider }}_token
+{% endif %}
+{% endfor %}
+
+    secrets:
+{% for provider in providers %}
+{% if provider == 'cloudflare' %}
+      - cloudflare_email
+      - cloudflare_key
+{% else %}
+      - {{ provider }}_token
+{% endif %}
+{% endfor %}
+{% endif %}
+
+    networks:
+      - proxy
+
+configs:
+  traefik_static:
+    external: true
+
+{% if providers is defined and providers | length > 0 %}
+secrets:
+{% for provider in providers %}
+{% if provider == 'cloudflare' %}
+  cloudflare_email:
+    external: true
+  cloudflare_key:
+    external: true
+{% else %}
+  {{ provider }}_token:
+    external: true
+{% endif %}
+{% endfor %}
+{% endif %}
+
+networks:
+  proxy:
+    external: true

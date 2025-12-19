@@ -1,0 +1,53 @@
+---
+- name: Initialize Docker Swarm
+  community.docker.docker_swarm:
+    state: present
+    advertise_addr: "{{ ansible_default_ipv4.address }}"
+
+- name: Create Traefik directory
+  file:
+    path: "/home/{{ ansible_user }}/traefik"
+    state: directory
+    mode: '0755'
+    owner: "{{ ansible_user }}"
+
+- name: Create Traefik ACME directory
+  file:
+    path: "/home/{{ ansible_user }}/traefik/acme"
+    state: directory
+    mode: '0755'
+    owner: "{{ ansible_user }}"
+  when: not (has_cloudflare_tunnel | default(false) | bool)
+
+- name: Create Traefik overlay network
+  community.docker.docker_network:
+    name: proxy
+    driver: overlay
+    attachable: true
+
+- name: Configure DNS provider
+  include_tasks: dns-provider.yml
+  when: provider_name is defined
+
+# Skip these tasks when dns-provider.yml already handled everything
+- name: Create Traefik static config
+  community.docker.docker_config:
+    name: traefik_static
+    data: "{{ lookup('template', 'traefik-static.yaml.j2') }}"
+    state: present
+  when: provider_name is not defined
+
+- name: Deploy Traefik compose file
+  template:
+    src: traefik-compose.yaml.j2
+    dest: "/home/{{ ansible_user }}/traefik/compose.yaml"
+    mode: '0644'
+  when: provider_name is not defined
+
+- name: Deploy Traefik stack
+  community.docker.docker_stack:
+    name: traefik
+    compose:
+      - "/home/{{ ansible_user }}/traefik/compose.yaml"
+    state: present
+  when: provider_name is not defined

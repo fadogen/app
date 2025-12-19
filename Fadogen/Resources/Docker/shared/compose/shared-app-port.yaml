@@ -1,0 +1,6 @@
+---
+services:
+  app:
+    deploy:
+      labels:
+        - "traefik.http.services.{{PROJECT_NAME}}.loadbalancer.server.port=8080"

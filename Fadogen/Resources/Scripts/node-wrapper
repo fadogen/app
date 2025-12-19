@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# Node Wrapper for .fadogen and .nvmrc support in shebangs
+# This wrapper is called by #!/usr/bin/env node in globally installed scripts
+
+# Auto-detect FADOGEN_BASE from wrapper location (bin/node -> base)
+FADOGEN_BASE="$(cd "$(dirname "$0")/.." && pwd)"
+
+# Source the main Fadogen script which sets FADOGEN_BIN, FADOGEN_NODE_VERSIONS, etc.
+[ -f "$FADOGEN_BASE/scripts/fadogen.sh" ] && . "$FADOGEN_BASE/scripts/fadogen.sh"
+
+_fadogen_exec_node_tool "node" "$@"

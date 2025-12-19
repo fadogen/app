@@ -1,0 +1,6 @@
+---
+services:
+  app:
+    environment:
+      INERTIA_SSR_URL: "http://ssr:13714"
+      INERTIA_SSR_ENSURE_BUNDLE_EXISTS: "false"

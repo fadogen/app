@@ -1,0 +1,14 @@
+---
+# DNS providers using a single token/API key
+dns_provider_env_vars:
+  digitalocean: DO_AUTH_TOKEN
+  hetzner: HETZNER_API_KEY
+  vultr: VULTR_API_KEY
+  linode: LINODE_TOKEN
+  bunny: BUNNY_API_KEY
+
+# Cloudflare uses email + Global API Key (email_var, key_var)
+# Due to API token bug with domain listing
+cloudflare_env_vars:
+  email: CF_API_EMAIL
+  key: CF_API_KEY

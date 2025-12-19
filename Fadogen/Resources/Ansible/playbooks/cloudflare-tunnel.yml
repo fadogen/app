@@ -1,0 +1,62 @@
+---
+# Fadogen Cloudflare Tunnel Playbook
+# Installs and configures cloudflared daemon with tunnel token
+
+- name: Install and Configure Cloudflare Tunnel
+  hosts: all
+  become: true
+  gather_facts: true
+
+  # Required variables (passed via extra-vars from ProvisioningService):
+  # - tunnel_token: "base64_encoded_token" (SENSITIVE - encrypted in CloudKit)
+  # - tunnel_id: "UUID"
+  # - ssh_hostname: "ssh.example.com"
+
+  pre_tasks:
+    - name: Validate required tunnel variables
+      ansible.builtin.assert:
+        that:
+          - tunnel_token is defined
+          - tunnel_token | length > 0
+          - tunnel_id is defined
+          - tunnel_id | length > 0
+          - ssh_hostname is defined
+          - ssh_hostname | length > 0
+        fail_msg: |
+          ❌ Missing required tunnel variables!
+
+          Required variables:
+            - tunnel_token (base64 encoded)
+            - tunnel_id (UUID)
+            - ssh_hostname (e.g., ssh.example.com)
+
+          These should be passed via --extra-vars from ProvisioningService.
+        quiet: true
+
+    - name: Update package cache (Debian/Ubuntu)
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name: Install required dependencies
+      ansible.builtin.apt:
+        name:
+          - curl
+          - ca-certificates
+          - gnupg
+        state: present
+      when: ansible_os_family == "Debian"
+
+  roles:
+    - cloudflared
+
+  post_tasks:
+    - name: Wait for cloudflared service to be active
+      ansible.builtin.systemd:
+        name: cloudflared
+      register: cloudflared_status
+      until: cloudflared_status.status.ActiveState == "active"
+      retries: 5
+      delay: 2
+      failed_when: cloudflared_status.status.ActiveState != "active"

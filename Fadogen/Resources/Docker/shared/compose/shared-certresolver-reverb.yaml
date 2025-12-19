@@ -1,0 +1,6 @@
+---
+services:
+  reverb:
+    deploy:
+      labels:
+        - "traefik.http.routers.{{PROJECT_NAME}}-reverb.tls.certresolver=letsencrypt-${DNS_PROVIDER}"

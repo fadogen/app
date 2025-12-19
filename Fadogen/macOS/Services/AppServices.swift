@@ -1,0 +1,186 @@
+import Foundation
+import os
+import SwiftData
+
+private let logger = Logger(subsystem: "app.fadogen.Fadogen", category: "app-services")
+
+@Observable
+final class AppServices {
+    let caddy = CaddyService()
+    let caddyConfig: CaddyConfigService
+    let caddyCertificate = CaddyCertificateService()
+    let php: PHPManager
+    let phpFPM: PHPFPMService
+    let composer: ComposerManager
+    let node: NodeManager
+    let bun: BunManager
+    let services: ServicesManager
+    let serviceProcesses: ServiceProcessManager
+    let reverb: ReverbManager
+    let reverbProcess: ReverbProcessManager
+    let mailpit: MailpitService
+    let directoryWatcher: DirectoryWatcherService
+    let processCleanup: ProcessCleanupService
+    let projectGenerator = ProjectGeneratorService()
+    let modelContext: ModelContext
+
+    init(modelContext: ModelContext) {
+        self.modelContext = modelContext
+        self.processCleanup = ProcessCleanupService(modelContext: modelContext)
+        self.phpFPM = PHPFPMService(modelContext: modelContext)
+        self.caddyConfig = CaddyConfigService(modelContext: modelContext, caddy: caddy)
+        self.php = PHPManager(modelContext: modelContext, phpFPM: phpFPM, caddyConfig: caddyConfig)
+        self.composer = ComposerManager(modelContext: modelContext)
+        self.node = NodeManager(modelContext: modelContext)
+        self.bun = BunManager(modelContext: modelContext)
+        self.serviceProcesses = ServiceProcessManager(modelContext: modelContext)
+        self.services = ServicesManager(modelContext: modelContext, serviceProcesses: serviceProcesses)
+        self.reverbProcess = ReverbProcessManager(modelContext: modelContext)
+        self.reverb = ReverbManager(modelContext: modelContext, reverbProcess: reverbProcess, caddyConfig: caddyConfig)
+        self.mailpit = MailpitService(modelContext: modelContext)
+        self.directoryWatcher = DirectoryWatcherService(modelContext: modelContext, caddyConfig: caddyConfig)
+
+        // Inject dependencies into project generator for prerequisite management
+        projectGenerator.phpManager = php
+        projectGenerator.servicesManager = services
+        projectGenerator.serviceProcesses = serviceProcesses
+        projectGenerator.reverbManager = reverb
+        projectGenerator.reverbProcess = reverbProcess
+        projectGenerator.bunManager = bun
+        projectGenerator.nodeManager = node
+        projectGenerator.modelContext = modelContext
+    }
+
+    func initialize() async {
+        // Phase 0: Cleanup orphaned processes from previous crashes
+        processCleanup.cleanupOrphanedProcesses()
+
+        await initializeManagers()
+        await startWebServerAndDatabases()
+        await startPHPRuntime()
+        await startApplications()
+    }
+
+    // MARK: - Phase 1: Initialize managers
+
+    private func initializeManagers() async {
+        // Generate main Caddyfile skeleton
+        do {
+            try caddyConfig.generateMainCaddyfile()
+        } catch {
+            logger.error("Failed to generate main Caddyfile: \(error.localizedDescription)")
+        }
+
+        // Initialize managers with dependencies respected
+        // PHP must complete first (Composer depends on PHP binary)
+        async let servicesInit: Void = services.initialize()    // Load service metadata (independent)
+        async let reverbInit: Void = reverb.initialize()        // Load Reverb config (independent)
+        async let watcherInit: Void = directoryWatcher.reconcile(syncCaddy: false)  // Scan sites (independent)
+
+        // PHP initialization (creates bin/ directory and installs PHP)
+        await php.initialize()
+
+        // Composer depends on PHP symlink, must be sequential
+        await composer.initialize()
+
+        // Node.js initialization (independent of PHP)
+        async let nodeInit: Void = node.initialize()
+
+        // Bun initialization (independent)
+        async let bunInit: Void = bun.initialize()
+
+        // Setup Fadogen shell integration (must be AFTER php.initialize() creates bin/)
+        // This replaces PVM and NVM setup, now unified in fadogen.sh
+        do {
+            try FadogenShellService.setup()
+        } catch {
+            logger.warning("Failed to setup Fadogen shell integration: \(error.localizedDescription)")
+        }
+
+        // Wait for other independent initializations
+        await servicesInit
+        await reverbInit
+        await watcherInit
+        await nodeInit
+        await bunInit
+
+        // Configure service dependencies
+        caddy.phpFPM = phpFPM
+        caddy.reverbProcess = reverbProcess
+        caddy.processCleanup = processCleanup
+        caddy.certificateService = caddyCertificate
+        phpFPM.processCleanup = processCleanup
+        serviceProcesses.processCleanup = processCleanup
+        reverbProcess.processCleanup = processCleanup
+        mailpit.processCleanup = processCleanup
+        mailpit.caddyConfig = caddyConfig
+    }
+
+    // MARK: - Phase 2: Start web server + databases
+
+    private func startWebServerAndDatabases() async {
+        async let caddyTask: Void = startCaddyAndWaitForCA()
+        async let databasesTask: Void = serviceProcesses.startAutoStartServices()
+
+        await caddyTask
+        await databasesTask
+    }
+
+    private func startCaddyAndWaitForCA() async {
+        // Generate project Caddyfiles (needs PHP version info from Phase 1)
+        caddyConfig.reconcile()
+
+        // Start Caddy without restarting dependencies (they haven't started yet)
+        // Services will start after Caddy with correct certificates already installed
+        do {
+            try await caddy.start(restartDependencies: false)
+        } catch {
+            logger.warning("Failed to start Caddy: \(error)")
+        }
+    }
+
+    // MARK: - Phase 3: Start PHP runtime
+
+    private func startPHPRuntime() async {
+        // Add Caddy CA to PHP's trusted certificates
+        do {
+            if try PHPConfigService.ensureCaddyCACert() {
+                logger.info("Caddy CA added to cacert.pem")
+            }
+        } catch {
+            logger.warning("Failed to add Caddy CA to cacert.pem: \(error)")
+        }
+
+        // Start PHP-FPM with correct cacert.pem (includes Caddy CA)
+        await phpFPM.startAll()
+    }
+
+    // MARK: - Phase 4: Start applications
+
+    private func startApplications() async {
+        // Start Reverb if autoStart enabled
+        await reverbProcess.startAutoStartService()
+
+        // Start Mailpit if autoStart enabled
+        await mailpit.startAutoStartService()
+    }
+
+    func shutdown() async {
+        await caddy.stop()
+
+        // Stop all running database/cache services
+        await serviceProcesses.stopAll()
+
+        // Stop Reverb if running
+        await reverbProcess.stop()
+
+        // Stop Mailpit if running
+        await mailpit.stop()
+
+        // Stop all PHP-FPM processes
+        await phpFPM.stopAll()
+
+        // Stop directory monitoring
+        directoryWatcher.shutdown()
+    }
+}

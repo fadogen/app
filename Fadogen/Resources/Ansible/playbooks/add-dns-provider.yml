@@ -1,0 +1,54 @@
+---
+# Fadogen DNS Provider Management Playbook
+# Adds/updates DNS provider credentials for Traefik ACME DNS challenge
+#
+# Required variables (passed via extra-vars):
+# - dns_providers: Comma-separated list of all DNS providers (e.g., "cloudflare,digitalocean")
+# - provider_name: DNS provider identifier for the new provider (e.g., "cloudflare")
+# - provider_token: API token for DNS provider (SENSITIVE) - for all providers except Cloudflare
+# - provider_email: Email for Cloudflare Global API Key authentication (SENSITIVE) - Cloudflare only
+# - provider_key: Global API Key for Cloudflare (SENSITIVE) - Cloudflare only
+# - acme_email: Email for Let's Encrypt notifications
+
+- name: Add DNS provider to Traefik
+  hosts: all
+  become: true
+
+  pre_tasks:
+    - name: Validate common DNS variables
+      ansible.builtin.assert:
+        that:
+          - dns_providers is defined
+          - dns_providers | length > 0
+          - provider_name is defined
+          - provider_name | length > 0
+          - acme_email is defined
+          - acme_email is match('^[^@]+@[^@]+\\.[^@]+$')
+        fail_msg: "Missing or invalid DNS provider variables"
+        quiet: true
+
+    - name: Validate Cloudflare credentials
+      ansible.builtin.assert:
+        that:
+          - provider_email is defined
+          - provider_email | length > 0
+          - provider_email is match('^[^@]+@[^@]+\\.[^@]+$')
+          - provider_key is defined
+          - provider_key | length > 0
+        fail_msg: "Missing or invalid Cloudflare credentials (email + Global API Key required)"
+        quiet: true
+      when: provider_name == "cloudflare"
+
+    - name: Validate other DNS provider credentials
+      ansible.builtin.assert:
+        that:
+          - provider_token is defined
+          - provider_token | length > 0
+        fail_msg: "Missing or invalid DNS provider token"
+        quiet: true
+      when: provider_name != "cloudflare"
+
+  roles:
+    - role: traefik
+      vars:
+        providers: "{{ dns_providers.split(',') }}"

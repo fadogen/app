@@ -1,0 +1,9 @@
+---
+services:
+  app:
+    command: ["php", "/var/www/html/artisan", "octane:start", "--server=frankenphp", "--port=8000"]
+    healthcheck:
+      test: ["CMD", "healthcheck-octane"]
+    deploy:
+      labels:
+        - "traefik.http.services.{{PROJECT_NAME}}.loadbalancer.server.port=8000"

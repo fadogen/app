@@ -1,0 +1,11 @@
+#!/bin/sh
+
+# Composer Wrapper for .fadogen support
+# Uses the PHP wrapper to ensure correct PHP version is used
+
+# Auto-detect FADOGEN_BASE from wrapper location (bin/composer -> base)
+FADOGEN_BASE="$(cd "$(dirname "$0")/.." && pwd)"
+FADOGEN_BIN="$FADOGEN_BASE/bin"
+
+# Use PHP wrapper (which handles all error cases including missing PHP and Composer)
+exec "$FADOGEN_BIN/php" "$FADOGEN_BIN/composer.phar" "$@"

@@ -1,0 +1,26 @@
+---
+# Ansible Role: cloudflared
+# Firewall configuration tasks - TWO-STAGE APPROACH
+#
+# SAFETY WARNING: This task ONLY runs with explicit --tags close_ssh
+# Usage: ansible-playbook cloudflare-tunnel.yml --extra-vars '{...}' --tags close_ssh
+#
+# IMPORTANT: Verify tunnel works BEFORE running this task!
+# Test: ssh -o ProxyCommand="cloudflared access ssh --hostname %h" user@ssh.example.com
+
+- name: Gather service facts for firewall detection
+  ansible.builtin.service_facts:
+
+- name: Detect firewall system
+  ansible.builtin.set_fact:
+    firewall_system: "{{ 'ufw' if ansible_facts.services['ufw.service'] is defined else 'none' }}"
+
+# UFW (Ubuntu/Debian)
+- name: Close SSH port 22 (UFW)
+  community.general.ufw:
+    rule: deny
+    port: '22'
+    proto: tcp
+  when:
+    - firewall_system == "ufw"
+    - close_ssh_port | bool

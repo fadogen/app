@@ -1,0 +1,8 @@
+---
+# Ansible Role: cloudflared
+# Default variables for Cloudflare Tunnel installation
+
+# Firewall configuration: NEVER close SSH by default (safety mechanism)
+# This prevents accidental lockout if tunnel fails to configure
+# Set to true ONLY after manually verifying tunnel works
+close_ssh_port: false

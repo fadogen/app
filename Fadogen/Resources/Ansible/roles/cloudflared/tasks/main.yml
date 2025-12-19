@@ -1,0 +1,22 @@
+---
+# Ansible Role: cloudflared
+# Main orchestration file - coordinates all tasks
+
+- name: Include installation tasks
+  ansible.builtin.include_tasks: install.yml
+  tags:
+    - install
+    - cloudflared
+
+- name: Include service configuration tasks
+  ansible.builtin.include_tasks: service.yml
+  tags:
+    - service
+    - cloudflared
+
+- name: Include firewall configuration tasks
+  ansible.builtin.include_tasks: firewall.yml
+  when: close_ssh_port | bool
+  tags:
+    - firewall
+    - close_ssh

@@ -1,0 +1,30 @@
+---
+services:
+  sqlite-backup:
+    image: busybox:stable
+    command: ["sleep", "infinity"]
+    volumes:
+      - 'stack-sqlite:/data:ro'
+      - 'backup_dumps:/dumps'
+    networks:
+      - internal
+    labels:
+      - "docker-volume-backup.archive-pre=/bin/sh -c 'cp /data/*.db /dumps/ 2>/dev/null || cp /data/*.sqlite /dumps/ 2>/dev/null || true'"
+      - docker-volume-backup.exec-label={{PROJECT_NAME}}
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: "10m"
+        max-file: "2"
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 8M
+
+  app:
+    volumes:
+      - 'stack-sqlite:/var/www/html/var/data'
+
+volumes:
+  stack-sqlite:

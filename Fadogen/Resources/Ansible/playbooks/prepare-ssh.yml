@@ -1,0 +1,91 @@
+---
+# Fadogen SSH Preparation Playbook
+# Configures SSH key authentication for target user
+
+- name: Prepare SSH Access for Target User
+  hosts: all
+  become: false
+  gather_facts: true
+
+  pre_tasks:
+    - name: Wait for SSH connection to be ready
+      wait_for_connection:
+        connect_timeout: 10
+        sleep: 5
+        timeout: 300
+
+    - name: Detect current remote user
+      command: whoami
+      register: current_remote_user
+      changed_when: false
+      become: false
+
+    - name: Determine if we're connected as root
+      set_fact:
+        is_root: "{{ current_remote_user.stdout == 'root' }}"
+
+    - name: Verify we're running as root
+      fail:
+        msg: "Must run as root to create user and configure SSH"
+      when: not is_root
+
+  tasks:
+    - name: Create Fadogen target user
+      user:
+        name: "{{ fadogen_target_user }}"
+        groups: sudo
+        shell: /bin/bash
+        createhome: true
+
+    - name: Configure passwordless sudo for target user
+      lineinfile:
+        path: /etc/sudoers.d/{{ fadogen_target_user }}
+        line: "{{ fadogen_target_user }} ALL=(ALL) NOPASSWD:ALL"
+        create: true
+        mode: "0440"
+        validate: "visudo -cf %s"
+
+    - name: Ensure .ssh directory exists for target user
+      file:
+        path: "/home/{{ fadogen_target_user }}/.ssh"
+        state: directory
+        owner: "{{ fadogen_target_user }}"
+        group: "{{ fadogen_target_user }}"
+        mode: "0700"
+
+    - name: Deploy SSH public key for target user
+      lineinfile:
+        path: "/home/{{ fadogen_target_user }}/.ssh/authorized_keys"
+        line: "{{ fadogen_ssh_public_key }}"
+        create: true
+        owner: "{{ fadogen_target_user }}"
+        group: "{{ fadogen_target_user }}"
+        mode: "0600"
+
+    - name: Verify SSH key is present before proceeding
+      shell: |
+        # Check if authorized_keys file exists
+        if [ ! -f "/home/{{ fadogen_target_user }}/.ssh/authorized_keys" ]; then
+          echo "FATAL ERROR: authorized_keys file not found!"
+          exit 1
+        fi
+
+        # Count valid SSH keys in authorized_keys (lines starting with ssh-)
+        key_count=$(grep -c "^ssh-" "/home/{{ fadogen_target_user }}/.ssh/authorized_keys" || echo "0")
+
+        if [ "$key_count" -eq 0 ]; then
+          echo "FATAL ERROR: No valid SSH keys found in authorized_keys!"
+          echo "File content:"
+          cat "/home/{{ fadogen_target_user }}/.ssh/authorized_keys"
+          exit 1
+        fi
+
+        echo "✓ SSH key verified: $key_count key(s) found"
+        exit 0
+      changed_when: false
+
+    - name: Update apt cache
+      apt:
+        update_cache: true
+        cache_valid_time: 0
+      when: ansible_os_family == "Debian"

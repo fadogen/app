@@ -1,0 +1,40 @@
+---
+services:
+  redis:
+    image: 'redis:{{REDIS_VERSION}}-alpine'
+    ulimits:
+      nofile:
+        soft: 20000
+        hard: 40000
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--maxmemory", "2gb", "--maxmemory-policy", "volatile-lru"]
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+    volumes:
+      - 'stack-redis:/data'
+      - 'backup_dumps:/dumps'
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: "50m"
+        max-file: "6"
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      retries: 3
+      timeout: 5s
+    labels:
+      - docker-volume-backup.archive-pre=/bin/sh -c 'redis-cli -a $$REDIS_PASSWORD BGSAVE && sleep 2 && cp /data/dump.rdb /dumps/redis.rdb'
+      - docker-volume-backup.exec-label={{PROJECT_NAME}}
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role==manager
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: start-first
+
+volumes:
+  stack-redis:

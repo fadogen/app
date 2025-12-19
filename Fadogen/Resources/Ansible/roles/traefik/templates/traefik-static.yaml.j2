@@ -1,0 +1,46 @@
+api:
+  dashboard: false
+
+log:
+  level: INFO
+
+entryPoints:
+  web:
+    address: ":80"
+{% if has_cloudflare_tunnel | default(false) | bool %}
+    asDefault: true
+    forwardedHeaders:
+      insecure: true
+{% else %}
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+{% endif %}
+
+{% if not (has_cloudflare_tunnel | default(false) | bool) %}
+  websecure:
+    address: ":443"
+    asDefault: true
+    http:
+      tls: {}
+{% endif %}
+
+providers:
+  swarm:
+    exposedByDefault: false
+    network: proxy
+    endpoint: "unix:///var/run/docker.sock"
+
+{% if providers is defined and providers | length > 0 and not (has_cloudflare_tunnel | default(false) | bool) %}
+certificatesResolvers:
+{% for provider in providers %}
+  letsencrypt-{{ provider }}:
+    acme:
+      email: {{ acme_email }}
+      storage: /etc/traefik/acme/{{ provider }}.json
+      dnsChallenge:
+        provider: {{ provider }}
+{% endfor %}
+{% endif %}
