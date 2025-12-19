@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>SUFeedURL</key>
-	<string>https://fouteox.github.io/fadogen-app/appcast.xml</string>
+	<string>https://fadogen.github.io/app/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>0SgFU/1Qx4qEPS2e7wN8n+6WpPdsNG+UoGNhVrvURBA=</string>
 </dict>
