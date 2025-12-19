@@ -780,7 +780,20 @@
       }
     },
     "Add Service" : {
-
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dienst hinzufügen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter un service"
+          }
+        }
+      }
     },
     "Add these variables to your Laravel .env file:" : {
       "comment" : "A prompt instructing the user to add environment variables to their Laravel .env file.",
@@ -3820,10 +3833,22 @@
     },
     "Edit %@ %@" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ %2$@ bearbeiten"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "new",
             "value" : "Edit %1$@ %2$@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifier %1$@ %2$@"
           }
         }
       }
@@ -4437,7 +4462,20 @@
       }
     },
     "Failed to restart service: %@" : {
-
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dienst konnte nicht neu gestartet werden: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Échec du redémarrage du service : %@"
+          }
+        }
+      }
     },
     "Failed to save changes: %@" : {
       "comment" : "Error message displayed when there is an issue saving changes to the service configuration. The argument is a localized description of the error.",
@@ -7726,7 +7764,20 @@
       }
     },
     "Port must be between 1024 and 65535." : {
-
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Port muss zwischen 1024 und 65535 liegen."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le port doit être entre 1024 et 65535."
+          }
+        }
+      }
     },
     "Port must be between 1024 and 65535. Multiple services can share the same port if they don't run simultaneously." : {
       "comment" : "A footer message explaining the port range and potential port sharing.",
