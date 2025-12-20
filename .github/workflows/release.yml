@@ -92,7 +92,6 @@ jobs:
           VERSION="${TAG_NAME#v}"
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
-          echo "Version: $VERSION, Build: ${{ github.run_number }}"
 
       - name: Build and Archive
         env:
@@ -135,7 +134,6 @@ jobs:
           # Sign all standalone executables with hardened runtime
           for binary in yq mailpit caddy cloudflared; do
             if [ -f "$binary" ]; then
-              echo "Signing $binary..."
               codesign --force --sign "Developer ID Application" \
                 --keychain "$KEYCHAIN_PATH" \
                 --options runtime \
@@ -145,7 +143,6 @@ jobs:
 
           # Sign Python binaries
           if [ -d "python/bin" ]; then
-            echo "Signing Python binaries..."
             find python/bin -type f -perm +111 | while read binary; do
               codesign --force --sign "Developer ID Application" \
                 --keychain "$KEYCHAIN_PATH" \
@@ -156,7 +153,6 @@ jobs:
 
           # Sign Ansible binaries if present
           if [ -d "ansible/bin" ]; then
-            echo "Signing Ansible binaries..."
             find ansible/bin -type f -perm +111 | while read binary; do
               codesign --force --sign "Developer ID Application" \
                 --keychain "$KEYCHAIN_PATH" \
@@ -246,16 +242,24 @@ jobs:
         run: |
           cd "$RUNNER_TEMP/Export"
 
-          # Fetch release notes from the created release
-          RELEASE_BODY=$(gh release view "$TAG_NAME" --repo "${{ github.repository }}" --json body -q .body)
+          # Fetch HTML release notes from GitHub API
+          RAW_NOTES=$(gh api \
+            -H "Accept: application/vnd.github.full+json" \
+            "/repos/${{ github.repository }}/releases/tags/$TAG_NAME" \
+            -q .body_html)
 
-          # Debug: verify DMG exists
-          ls -la "$APP_NAME-$TAG_NAME.dmg"
+          # Parse: extract only What's Changed list, remove contributor attributions
+          RELEASE_BODY=$(echo "$RAW_NOTES" | \
+            awk '
+              /<h2[^>]*>What.*Changed<\/h2>/ { capture=1; next }
+              /<h2[^>]*>/ { capture=0 }
+              /<p><strong>Full Changelog/ { capture=0 }
+              capture { print }
+            ' | \
+            sed -E 's/ by <a [^>]*>@[^<]+<\/a> in <a [^>]*>[^<]+<\/a>//g')
 
           # Sign DMG with Sparkle's EdDSA key (pipe key via stdin with -f -)
           SIGNATURE=$(echo "$SPARKLE_PRIVATE_KEY" | "$GITHUB_WORKSPACE/sparkle-tools/bin/sign_update" -f - "$APP_NAME-$TAG_NAME.dmg")
-
-          echo "Signature output: $SIGNATURE"
 
           # Parse signature and length (both on same line: sparkle:edSignature="..." length="...")
           ED_SIGNATURE=$(echo "$SIGNATURE" | sed -n 's/.*edSignature="\([^"]*\)".*/\1/p')
@@ -304,9 +308,6 @@ jobs:
             </channel>
           </rss>
           EOF
-
-          echo "Generated appcast.xml:"
-          cat appcast.xml
 
       - name: Deploy Appcast to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
