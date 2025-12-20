@@ -147,7 +147,9 @@ struct ReverbDetailView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .navigationTitle("Reverb")
         .toolbar {
-            ToolbarSpacer(.flexible, placement: .automatic)
+            if #available(macOS 26, *) {
+                ToolbarSpacer(.flexible, placement: .automatic)
+            }
 
             // Environment variables button - informative action
             ToolbarItem(placement: .automatic) {
@@ -159,7 +161,9 @@ struct ReverbDetailView: View {
                 .help("Show environment variables for .env file")
             }
 
-            ToolbarSpacer(.flexible, placement: .automatic)
+            if #available(macOS 26, *) {
+                ToolbarSpacer(.flexible, placement: .automatic)
+            }
 
             // Update button (only if update available) - positioned before Edit
             if hasUpdate {
@@ -169,7 +173,6 @@ struct ReverbDetailView: View {
                     } label: {
                         Label("Update", systemImage: "arrow.down.circle")
                     }
-                    .buttonStyle(.glassProminent)
                     .buttonBorderShape(.circle)
                     .tint(.orange)
                     .keyboardShortcut("u", modifiers: .command)
@@ -202,7 +205,9 @@ struct ReverbDetailView: View {
                 .help("Delete Reverb installation")
             }
 
-            ToolbarSpacer(.flexible, placement: .automatic)
+            if #available(macOS 26, *) {
+                ToolbarSpacer(.flexible, placement: .automatic)
+            }
 
             // Start/Stop button (primary action)
             ToolbarItem(placement: .automatic) {

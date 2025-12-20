@@ -85,7 +85,9 @@ struct ProjectsView: View {
                 }
             }
 
-            ToolbarSpacer(.flexible)
+            if #available(macOS 26, *) {
+                ToolbarSpacer(.flexible)
+            }
 
             ToolbarItem {
                 Button {

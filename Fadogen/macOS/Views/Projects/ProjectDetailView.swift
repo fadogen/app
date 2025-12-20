@@ -332,7 +332,9 @@ struct ProjectDetailView: View {
             .pickerStyle(.segmented)
         }
 
-        ToolbarSpacer(.flexible, placement: .automatic)
+        if #available(macOS 26, *) {
+            ToolbarSpacer(.flexible, placement: .automatic)
+        }
 
         // Delete button (always visible)
         ToolbarItem(placement: .automatic) {
@@ -343,7 +345,9 @@ struct ProjectDetailView: View {
             }
         }
 
-        ToolbarSpacer(.fixed, placement: .automatic)
+        if #available(macOS 26, *) {
+            ToolbarSpacer(.fixed, placement: .automatic)
+        }
 
         // GitHub button
         if let project = effectiveLocalProject, hasLocalPath || project.gitHubURL != nil {
@@ -400,7 +404,9 @@ struct ProjectDetailView: View {
             }
         }
 
-        ToolbarSpacer(.fixed, placement: .automatic)
+        if #available(macOS 26, *) {
+            ToolbarSpacer(.fixed, placement: .automatic)
+        }
 
         // Contextual action button
         ToolbarItem(placement: .automatic) {

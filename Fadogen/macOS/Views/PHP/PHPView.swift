@@ -74,7 +74,9 @@ struct PHPView: View {
                 .disabled(services.php.isLoading || services.composer.isLoading)
             }
 
-            ToolbarSpacer(.flexible)
+            if #available(macOS 26, *) {
+                ToolbarSpacer(.flexible)
+            }
 
             // Help button (secondary, rare usage)
             ToolbarItem(placement: .automatic) {

@@ -114,7 +114,9 @@ struct CaddyView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .navigationTitle("Caddy Server")
         .toolbar {
-            ToolbarSpacer(.flexible)
+            if #available(macOS 26, *) {
+                ToolbarSpacer(.flexible)
+            }
 
             // Clear logs button
             ToolbarItem(placement: .automatic) {
@@ -127,7 +129,9 @@ struct CaddyView: View {
                 .help("Clear all logs")
             }
 
-            ToolbarSpacer(.flexible)
+            if #available(macOS 26, *) {
+                ToolbarSpacer(.flexible)
+            }
 
             // Start/Stop/Retry button
             ToolbarItem(placement: .automatic) {

@@ -14,7 +14,7 @@ A native macOS app providing a complete local development stack with built-in VP
 
 ## Requirements
 
-- macOS 26.0 (Tahoe) or later
+- macOS 15.0 (Sequoia) or later
 - Apple Silicon
 
 ## Installation
