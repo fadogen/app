@@ -94,7 +94,9 @@ struct CachesView: View {
                 .disabled(appServices.services.isLoading)
             }
 
-            ToolbarSpacer(.flexible)
+            if #available(macOS 26, *) {
+                ToolbarSpacer(.flexible)
+            }
 
             ToolbarItem(placement: .automatic) {
                 Button {

@@ -230,7 +230,6 @@ struct ServiceDetailView: View {
                     } label: {
                         Label("Update", systemImage: "arrow.down.circle")
                     }
-                    .buttonStyle(.glassProminent)
                     .buttonBorderShape(.circle)
                     .tint(.orange)
                     .keyboardShortcut("u", modifiers: .command)
@@ -239,7 +238,9 @@ struct ServiceDetailView: View {
                 }
             }
 
-            ToolbarSpacer(.flexible, placement: .automatic)
+            if #available(macOS 26, *) {
+                ToolbarSpacer(.flexible, placement: .automatic)
+            }
 
             // Edit button
             ToolbarItem(placement: .automatic) {
@@ -265,7 +266,9 @@ struct ServiceDetailView: View {
                 .help("Delete this service version")
             }
 
-            ToolbarSpacer(.flexible, placement: .automatic)
+            if #available(macOS 26, *) {
+                ToolbarSpacer(.flexible, placement: .automatic)
+            }
 
             // Clear logs button - separated from destructive actions
             ToolbarItem(placement: .automatic) {
@@ -278,7 +281,9 @@ struct ServiceDetailView: View {
                 .help("Clear all logs")
             }
 
-            ToolbarSpacer(.flexible, placement: .automatic)
+            if #available(macOS 26, *) {
+                ToolbarSpacer(.flexible, placement: .automatic)
+            }
 
             // Start/Stop button (primary action)
             ToolbarItem(placement: .automatic) {

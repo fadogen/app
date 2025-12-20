@@ -138,7 +138,9 @@ struct MailpitView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .navigationTitle("Mail")
         .toolbar {
-            ToolbarSpacer(.flexible, placement: .automatic)
+            if #available(macOS 26, *) {
+                ToolbarSpacer(.flexible, placement: .automatic)
+            }
 
             // Environment variables button
             ToolbarItem(placement: .automatic) {
@@ -150,7 +152,9 @@ struct MailpitView: View {
                 .help("Show environment variables for .env file")
             }
 
-            ToolbarSpacer(.flexible, placement: .automatic)
+            if #available(macOS 26, *) {
+                ToolbarSpacer(.flexible, placement: .automatic)
+            }
 
             // Edit button
             ToolbarItem(placement: .automatic) {
@@ -164,7 +168,9 @@ struct MailpitView: View {
                 .help("Edit port and auto-start settings")
             }
 
-            ToolbarSpacer(.flexible, placement: .automatic)
+            if #available(macOS 26, *) {
+                ToolbarSpacer(.flexible, placement: .automatic)
+            }
 
             // Start/Stop button (primary action)
             ToolbarItem(placement: .automatic) {
