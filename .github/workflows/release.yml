@@ -86,10 +86,12 @@ jobs:
 
       - name: Set Version from Tag
         run: |
+          # Get tag name from ref
+          TAG_NAME="${{ github.ref_name }}"
           # Extract version from tag (v1.0.0-alpha.2 -> 1.0.0-alpha.2)
-          VERSION="${{ github.ref_name }}"
-          VERSION="${VERSION#v}"
+          VERSION="${TAG_NAME#v}"
           echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
           echo "Version: $VERSION, Build: ${{ github.run_number }}"
 
       - name: Build and Archive
@@ -188,11 +190,11 @@ jobs:
             --icon "$APP_NAME.app" 150 190 \
             --hide-extension "$APP_NAME.app" \
             --app-drop-link 450 190 \
-            "$APP_NAME-${{ github.ref_name }}.dmg" \
+            "$APP_NAME-$TAG_NAME.dmg" \
             "$APP_NAME.app" || true
 
           # Verify DMG was created
-          if [ ! -f "$APP_NAME-${{ github.ref_name }}.dmg" ]; then
+          if [ ! -f "$APP_NAME-$TAG_NAME.dmg" ]; then
             echo "Error: DMG creation failed"
             exit 1
           fi
@@ -200,7 +202,7 @@ jobs:
           # Sign DMG with Developer ID (required before notarization)
           codesign --sign "Developer ID Application" \
             --keychain "$KEYCHAIN_PATH" \
-            "$APP_NAME-${{ github.ref_name }}.dmg"
+            "$APP_NAME-$TAG_NAME.dmg"
 
           # Store notarization credentials
           xcrun notarytool store-credentials "notary-profile" \
@@ -209,11 +211,11 @@ jobs:
             --team-id "$APPLE_TEAM_ID"
 
           # Notarize DMG (also validates .app inside)
-          xcrun notarytool submit "$APP_NAME-${{ github.ref_name }}.dmg" \
+          xcrun notarytool submit "$APP_NAME-$TAG_NAME.dmg" \
             --keychain-profile "notary-profile" \
             --wait
 
-          xcrun stapler staple "$APP_NAME-${{ github.ref_name }}.dmg"
+          xcrun stapler staple "$APP_NAME-$TAG_NAME.dmg"
 
       - name: Create GitHub Release (Draft)
         env:
@@ -222,16 +224,17 @@ jobs:
           cd "$RUNNER_TEMP/Export"
 
           # Detect pre-release from tag name (alpha, beta, rc)
-          if [[ "${{ github.ref_name }}" =~ (alpha|beta|rc) ]]; then
+          if [[ "$TAG_NAME" =~ (alpha|beta|rc) ]]; then
             PRERELEASE_FLAG="--prerelease"
           else
             PRERELEASE_FLAG=""
           fi
 
-          # Create as draft - will be published after all steps succeed
-          gh release create "${{ github.ref_name }}" \
-            "$APP_NAME-${{ github.ref_name }}.dmg" \
-            --title "${{ github.ref_name }}" \
+          # Create draft release with DMG and auto-generated notes
+          gh release create "$TAG_NAME" \
+            "$APP_NAME-$TAG_NAME.dmg" \
+            --repo "${{ github.repository }}" \
+            --title "$TAG_NAME" \
             --generate-notes \
             --draft \
             $PRERELEASE_FLAG
@@ -244,13 +247,13 @@ jobs:
           cd "$RUNNER_TEMP/Export"
 
           # Fetch release notes from the created release
-          RELEASE_BODY=$(gh release view "${{ github.ref_name }}" --json body -q .body)
+          RELEASE_BODY=$(gh release view "$TAG_NAME" --repo "${{ github.repository }}" --json body -q .body)
 
           # Debug: verify DMG exists
-          ls -la "$APP_NAME-${{ github.ref_name }}.dmg"
+          ls -la "$APP_NAME-$TAG_NAME.dmg"
 
           # Sign DMG with Sparkle's EdDSA key (pipe key via stdin with -f -)
-          SIGNATURE=$(echo "$SPARKLE_PRIVATE_KEY" | "$GITHUB_WORKSPACE/sparkle-tools/bin/sign_update" -f - "$APP_NAME-${{ github.ref_name }}.dmg")
+          SIGNATURE=$(echo "$SPARKLE_PRIVATE_KEY" | "$GITHUB_WORKSPACE/sparkle-tools/bin/sign_update" -f - "$APP_NAME-$TAG_NAME.dmg")
 
           echo "Signature output: $SIGNATURE"
 
@@ -267,10 +270,10 @@ jobs:
           PUB_DATE=$(date -R)
 
           # DMG download URL
-          DMG_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/$APP_NAME-${{ github.ref_name }}.dmg"
+          DMG_URL="https://github.com/${{ github.repository }}/releases/download/$TAG_NAME/$APP_NAME-$TAG_NAME.dmg"
 
           # Set channel for pre-releases (alpha, beta, rc)
-          if [[ "${{ github.ref_name }}" =~ (alpha|beta|rc) ]]; then
+          if [[ "$TAG_NAME" =~ (alpha|beta|rc) ]]; then
             CHANNEL_TAG="<sparkle:channel>beta</sparkle:channel>"
           else
             CHANNEL_TAG=""
@@ -317,7 +320,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release edit "${{ github.ref_name }}" --draft=false
+          gh release edit "$TAG_NAME" --repo "${{ github.repository }}" --draft=false
 
       - name: Cleanup
         if: always()
