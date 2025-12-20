@@ -6,16 +6,22 @@
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
     <item>
-      <title>Version 1.0.0</title>
+      <title>Version 1.0.1</title>
       
-      <description><![CDATA[Initial release]]></description>
-      <pubDate>Fri, 19 Dec 2025 16:25:48 +0000</pubDate>
-      <sparkle:version>30</sparkle:version>
-      <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-      <enclosure url="https://github.com/fadogen/app/releases/download/v1.0.0/Fadogen-v1.0.0.dmg"
-                 sparkle:edSignature="BM0fyPQdJ+atLGnO1RHc0Hx9iJtsMLRRULkYj5oqLgpvEZNTHPgQ02/k/Nju4K1Ed8OYHY8NU5MFSWiuYPYlCQ=="
-                 length="234577413"
+      <description><![CDATA[## What's Changed
+* feat: lower minimum deployment target to macOS 15 by @fouteox in https://github.com/fadogen/app/pull/1
+
+## New Contributors
+* @fouteox made their first contribution in https://github.com/fadogen/app/pull/1
+
+**Full Changelog**: https://github.com/fadogen/app/compare/v1.0.0...v1.0.1]]></description>
+      <pubDate>Sat, 20 Dec 2025 12:44:04 +0000</pubDate>
+      <sparkle:version>32</sparkle:version>
+      <sparkle:shortVersionString>1.0.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/fadogen/app/releases/download/v1.0.1/Fadogen-v1.0.1.dmg"
+                 sparkle:edSignature="MXBkkz7w1jdH9BcPnm6alxN0WYt4AgFAE4LhXcbN16xsfaWHRusHx1cOVQfmAQwk/ADw6Ixhha4w8jMCGkSBAw=="
+                 length="234636601"
                  type="application/octet-stream"/>
     </item>
   </channel>
