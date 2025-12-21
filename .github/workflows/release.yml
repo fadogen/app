@@ -243,9 +243,10 @@ jobs:
           cd "$RUNNER_TEMP/Export"
 
           # Fetch HTML release notes from GitHub API
+          RELEASE_ID=$(gh release view "$TAG_NAME" --json databaseId --jq '.databaseId')
           RAW_NOTES=$(gh api \
             -H "Accept: application/vnd.github.full+json" \
-            "/repos/${{ github.repository }}/releases/tags/$TAG_NAME" \
+            "/repos/${{ github.repository }}/releases/$RELEASE_ID" \
             -q .body_html)
 
           # Parse: extract only What's Changed list, remove contributor attributions
