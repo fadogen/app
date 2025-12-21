@@ -210,3 +210,34 @@ function _fadogen_exec_php_tool
         return 1
     end
 end
+
+# ============================================================================
+# Fadogen CLI Command
+# ============================================================================
+
+# Main fadogen command router
+function fadogen
+    switch $argv[1]
+        case 'php:ext'
+            set -e argv[1]
+            "$FADOGEN_BIN/fadogen-ext" $argv
+        case '--help' '-h' 'help'
+            echo "Fadogen - Development Environment Manager"
+            echo ""
+            echo "Commands:"
+            echo "  php:ext install <ext>   Install PHP extension via PECL"
+            echo "  php:ext list            List installed PHP extensions"
+            echo "  php:ext remove <ext>    Remove PHP extension"
+            echo ""
+            echo "Run 'fadogen <command> --help' for more information."
+        case '*'
+            echo "Fadogen - Development Environment Manager"
+            echo ""
+            echo "Usage: fadogen <command> [options]"
+            echo ""
+            echo "Commands:"
+            echo "  php:ext    Manage PHP extensions"
+            echo ""
+            echo "Run 'fadogen --help' for more information."
+    end
+end

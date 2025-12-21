@@ -11,6 +11,7 @@ final class AppServices {
     let caddyCertificate = CaddyCertificateService()
     let php: PHPManager
     let phpFPM: PHPFPMService
+    let phpExtensionWatcher: PHPExtensionWatcher
     let composer: ComposerManager
     let node: NodeManager
     let bun: BunManager
@@ -28,6 +29,7 @@ final class AppServices {
         self.modelContext = modelContext
         self.processCleanup = ProcessCleanupService(modelContext: modelContext)
         self.phpFPM = PHPFPMService(modelContext: modelContext)
+        self.phpExtensionWatcher = PHPExtensionWatcher(modelContext: modelContext)
         self.caddyConfig = CaddyConfigService(modelContext: modelContext, caddy: caddy)
         self.php = PHPManager(modelContext: modelContext, phpFPM: phpFPM, caddyConfig: caddyConfig)
         self.composer = ComposerManager(modelContext: modelContext)
@@ -110,6 +112,7 @@ final class AppServices {
         caddy.processCleanup = processCleanup
         caddy.certificateService = caddyCertificate
         phpFPM.processCleanup = processCleanup
+        phpExtensionWatcher.setPHPFPM(phpFPM)
         serviceProcesses.processCleanup = processCleanup
         reverbProcess.processCleanup = processCleanup
         mailpit.processCleanup = processCleanup
@@ -153,6 +156,9 @@ final class AppServices {
 
         // Start PHP-FPM with correct cacert.pem (includes Caddy CA)
         await phpFPM.startAll()
+
+        // Start watching extension directories for auto-restart
+        phpExtensionWatcher.startWatching()
     }
 
     // MARK: - Phase 4: Start applications
@@ -179,6 +185,9 @@ final class AppServices {
 
         // Stop all PHP-FPM processes
         await phpFPM.stopAll()
+
+        // Stop extension watching
+        phpExtensionWatcher.shutdown()
 
         // Stop directory monitoring
         directoryWatcher.shutdown()

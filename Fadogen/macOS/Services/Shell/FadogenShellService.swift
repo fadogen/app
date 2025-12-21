@@ -47,6 +47,9 @@ nonisolated enum FadogenShellService {
         // Copy Composer wrapper to bin/
         try copyComposerWrapper()
 
+        // Copy PHP extension manager to bin/
+        try copyPHPExtensionManager()
+
         logger.info("Fadogen shell integration setup completed successfully")
     }
 
@@ -237,6 +240,10 @@ nonisolated enum FadogenShellService {
 
     private static func copyComposerWrapper() throws {
         try copyWrapper(wrapperName: "composer-wrapper", binaryName: "composer", description: "Composer wrapper")
+    }
+
+    private static func copyPHPExtensionManager() throws {
+        try copyWrapper(wrapperName: "fadogen-ext", binaryName: "fadogen-ext", description: "PHP extension manager")
     }
 
     private static func copyNodeWrapper() throws {
