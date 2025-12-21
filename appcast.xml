@@ -6,22 +6,20 @@
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
     <item>
-      <title>Version 1.0.1</title>
+      <title>Version 1.0.2</title>
       
-      <description><![CDATA[## What's Changed
-* feat: lower minimum deployment target to macOS 15 by @fouteox in https://github.com/fadogen/app/pull/1
-
-## New Contributors
-* @fouteox made their first contribution in https://github.com/fadogen/app/pull/1
-
-**Full Changelog**: https://github.com/fadogen/app/compare/v1.0.0...v1.0.1]]></description>
-      <pubDate>Sat, 20 Dec 2025 12:44:04 +0000</pubDate>
-      <sparkle:version>32</sparkle:version>
-      <sparkle:shortVersionString>1.0.1</sparkle:shortVersionString>
+      <description><![CDATA[<ul>
+<li>fix(ci): clean Sparkle release notes from GitHub HTML</li>
+<li>feat(caddy): add SPA dev server proxy support</li>
+<li>feat(php): add extension manager CLI via PECL</li>
+</ul>]]></description>
+      <pubDate>Sun, 21 Dec 2025 16:39:14 +0000</pubDate>
+      <sparkle:version>35</sparkle:version>
+      <sparkle:shortVersionString>1.0.2</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-      <enclosure url="https://github.com/fadogen/app/releases/download/v1.0.1/Fadogen-v1.0.1.dmg"
-                 sparkle:edSignature="MXBkkz7w1jdH9BcPnm6alxN0WYt4AgFAE4LhXcbN16xsfaWHRusHx1cOVQfmAQwk/ADw6Ixhha4w8jMCGkSBAw=="
-                 length="234636601"
+      <enclosure url="https://github.com/fadogen/app/releases/download/v1.0.2/Fadogen-v1.0.2.dmg"
+                 sparkle:edSignature="hGa8Zal+yobG6QSjMDC6lPd5B8mp2hhWTHNrFO8w/MzhQKIe4B0IuafobvTg5e6TCQ93nNJsWtLe+hBUfXtpDw=="
+                 length="234647159"
                  type="application/octet-stream"/>
     </item>
   </channel>
