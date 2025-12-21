@@ -1,0 +1,543 @@
+#!/bin/sh
+
+# Fadogen PHP Extension Manager
+# Usage: fadogen php:ext install <extension> [--php=<version>]
+#        fadogen php:ext list [--php=<version>]
+#        fadogen php:ext remove <extension> [--php=<version>]
+
+set -e
+
+# ============================================================================
+# Environment Setup
+# ============================================================================
+
+# Auto-detect FADOGEN_BASE from script location (bin/fadogen-ext -> base)
+FADOGEN_BASE="$(cd "$(dirname "$0")/.." && pwd)"
+FADOGEN_CONFIG="$FADOGEN_BASE/config/php"
+FADOGEN_BIN="$FADOGEN_BASE/bin"
+
+# Homebrew prefix (Apple Silicon only)
+HOMEBREW_PREFIX="/opt/homebrew"
+
+# ============================================================================
+# Color Output Helpers
+# ============================================================================
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+print_error() { printf "${RED}Error: %s${NC}\n" "$1" >&2; }
+print_success() { printf "${GREEN}%s${NC}\n" "$1"; }
+print_warning() { printf "${YELLOW}%s${NC}\n" "$1"; }
+print_info() { printf "${BLUE}%s${NC}\n" "$1"; }
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+# Get PHP version (from argument or default symlink)
+get_php_version() {
+    local requested="$1"
+
+    if [ -n "$requested" ]; then
+        echo "$requested"
+        return
+    fi
+
+    # Detect default from symlink
+    if [ -L "$FADOGEN_BIN/php.default" ]; then
+        local target
+        target=$(readlink "$FADOGEN_BIN/php.default")
+        # Extract version: php84 -> 8.4
+        local short
+        short=$(basename "$target" | sed 's/php//')
+        # Insert dot: 84 -> 8.4
+        echo "${short%?}.${short#?}"
+    else
+        print_error "No default PHP version configured"
+        echo "Please install PHP using Fadogen first."
+        exit 1
+    fi
+}
+
+# Convert version to short format (8.4 -> 84)
+version_short() {
+    echo "$1" | tr -d '.'
+}
+
+# Dynamically detect the Homebrew formula for a PHP version
+get_brew_formula() {
+    local version="$1" # e.g., "8.4"
+
+    # Check if php@X.Y formula exists
+    if brew info "php@$version" >/dev/null 2>&1; then
+        echo "php@$version"
+        return
+    fi
+
+    # Check if 'php' (latest) matches the requested version
+    if command -v jq >/dev/null 2>&1; then
+        local php_stable
+        php_stable=$(brew info php --json 2>/dev/null | jq -r '.[0].versions.stable' 2>/dev/null || echo "")
+        if [ -n "$php_stable" ] && echo "$php_stable" | grep -q "^$version"; then
+            echo "php"
+            return
+        fi
+    fi
+
+    # Fallback to php@X.Y (will fail if it doesn't exist)
+    echo "php@$version"
+}
+
+# Check if Homebrew is installed
+check_homebrew() {
+    if ! command -v brew >/dev/null 2>&1; then
+        print_error "Homebrew is required to compile PHP extensions"
+        echo ""
+        echo "Install Homebrew from: https://brew.sh"
+        echo "  /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+        exit 1
+    fi
+}
+
+# Setup Homebrew environment for PECL compilation
+# This ensures the compiler can find headers/libraries installed by Homebrew
+setup_brew_compile_env() {
+    local brew_prefix
+    brew_prefix=$(brew --prefix)
+
+    # Append Homebrew paths to compiler flags (don't overwrite existing)
+    export CFLAGS="${CFLAGS:+$CFLAGS }-I$brew_prefix/include"
+    export LDFLAGS="${LDFLAGS:+$LDFLAGS }-L$brew_prefix/lib"
+    export CPPFLAGS="${CPPFLAGS:+$CPPFLAGS }-I$brew_prefix/include"
+    export PKG_CONFIG_PATH="$brew_prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+}
+
+# Ensure Homebrew PHP is installed for compilation
+# Sets BREW_PHP_WAS_INSTALLED=1 if we installed it (so we can unlink after)
+ensure_brew_php() {
+    local version="$1"
+    local formula
+    formula=$(get_brew_formula "$version")
+
+    BREW_PHP_WAS_INSTALLED=0
+
+    if ! brew list "$formula" >/dev/null 2>&1; then
+        print_warning "Installing Homebrew PHP $version for extension compilation..."
+        echo "This is required once per PHP version to compile extensions."
+        echo ""
+        brew install "$formula"
+        echo ""
+        BREW_PHP_WAS_INSTALLED=1
+    fi
+}
+
+# Unlink Homebrew PHP only if we installed it (not if user had it already)
+maybe_unlink_brew_php() {
+    local version="$1"
+
+    if [ "$BREW_PHP_WAS_INSTALLED" -eq 1 ]; then
+        local formula
+        formula=$(get_brew_formula "$version")
+        # Unlink to avoid PATH conflicts with Fadogen's PHP
+        # The binaries remain installed at /opt/homebrew/opt/php@X.X/bin/
+        brew unlink "$formula" 2>/dev/null || true
+    fi
+}
+
+# Get Homebrew PHP installation path
+get_brew_php_path() {
+    local version="$1"
+    local formula
+    formula=$(get_brew_formula "$version")
+
+    if [ "$formula" = "php" ]; then
+        echo "$HOMEBREW_PREFIX/opt/php"
+    else
+        echo "$HOMEBREW_PREFIX/opt/$formula"
+    fi
+}
+
+# Get PECL binary path for a Homebrew PHP
+get_pecl_path() {
+    local php_path="$1"
+    echo "$php_path/bin/pecl"
+}
+
+# Get extension directory for Homebrew PHP
+get_brew_ext_dir() {
+    local php_path="$1"
+    "$php_path/bin/php" -r "echo ini_get('extension_dir');"
+}
+
+# Check if an extension is a Zend extension
+is_zend_extension() {
+    local extension="$1"
+    case "$extension" in
+        xdebug|opcache|ioncube*|sourceguardian*|zend*)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# Find .so file for an extension in a directory
+find_extension_so() {
+    local dir="$1"
+    local extension="$2"
+    find "$dir" -maxdepth 1 -name "${extension}*.so" -type f 2>/dev/null | head -1
+}
+
+# ============================================================================
+# Core Extension Functions
+# ============================================================================
+
+install_extension() {
+    local extension="$1"
+    local php_version="$2"
+    local short
+    short=$(version_short "$php_version")
+    local config_dir="$FADOGEN_CONFIG/$short"
+    local ext_dir="$config_dir/extensions"
+
+    # 1. Check if already installed in Fadogen
+    if [ -d "$ext_dir" ]; then
+        local existing_so
+        existing_so=$(find_extension_so "$ext_dir" "$extension")
+        if [ -n "$existing_so" ]; then
+            print_info "$extension is already installed for PHP $php_version"
+            echo "Location: $existing_so"
+            echo ""
+            echo "To reinstall, first remove it:"
+            echo "  fadogen php:ext remove $extension"
+            exit 0
+        fi
+    fi
+
+    echo "Installing ${BLUE}$extension${NC} for PHP $php_version..."
+    echo ""
+
+    # 2. Check if Fadogen PHP version exists
+    if [ ! -d "$config_dir" ]; then
+        print_error "PHP $php_version is not installed in Fadogen"
+        echo "Available versions:"
+        for d in "$FADOGEN_CONFIG"/*/; do
+            [ -d "$d" ] || continue
+            local v
+            v=$(basename "$d")
+            echo "  - ${v%?}.${v#?}"
+        done
+        exit 1
+    fi
+
+    # 3. Check Homebrew
+    check_homebrew
+
+    # 4. Ensure Homebrew PHP is installed
+    ensure_brew_php "$php_version"
+    local brew_php
+    brew_php=$(get_brew_php_path "$php_version")
+    local pecl
+    pecl=$(get_pecl_path "$brew_php")
+
+    # 5. Setup Homebrew environment for compilation
+    setup_brew_compile_env
+
+    # 6. Run PECL install
+    print_info "Compiling extension using PECL..."
+    echo ""
+
+    local pecl_output_file
+    pecl_output_file=$(mktemp)
+    local pecl_exit_code=0
+
+    # Run PECL interactively - user can answer prompts (e.g., library paths)
+    "$pecl" install "$extension" 2>&1 | tee "$pecl_output_file" || pecl_exit_code=${PIPESTATUS[0]}
+
+    local pecl_output
+    pecl_output=$(cat "$pecl_output_file")
+    rm -f "$pecl_output_file"
+
+    if [ $pecl_exit_code -ne 0 ]; then
+        # Check if already installed (this is actually success for our purposes)
+        if echo "$pecl_output" | grep -q "is already installed"; then
+            echo ""
+            print_info "Extension already compiled, copying to Fadogen..."
+        else
+            echo ""
+            print_error "PECL installation failed"
+            echo ""
+            echo "Common solutions:"
+            echo "  - Check if the extension name is correct: pecl search $extension"
+            echo "  - Some extensions require additional dependencies"
+            echo "  - For library paths, enter: /opt/homebrew"
+            exit 1
+        fi
+    fi
+
+    echo ""
+
+    # 7. Find compiled .so file
+    local brew_ext_dir
+    brew_ext_dir=$(get_brew_ext_dir "$brew_php")
+    local so_file="$brew_ext_dir/${extension}.so"
+
+    if [ ! -f "$so_file" ]; then
+        # Try alternate naming (some extensions use different names)
+        so_file=$(find_extension_so "$brew_ext_dir" "$extension")
+    fi
+
+    if [ ! -f "$so_file" ]; then
+        print_error "Could not find compiled extension file"
+        echo "Expected location: $brew_ext_dir/${extension}.so"
+        exit 1
+    fi
+
+    # 8. Create Fadogen extensions directory
+    mkdir -p "$ext_dir"
+
+    # 9. Copy .so file to Fadogen config
+    local dest_file="$ext_dir/$(basename "$so_file")"
+    cp "$so_file" "$dest_file"
+    chmod 755 "$dest_file"
+
+    # 10. Update extensions.ini
+    update_extensions_ini "$config_dir" "$extension" "$dest_file"
+
+    # 11. Unlink Homebrew PHP only if we installed it
+    maybe_unlink_brew_php "$php_version"
+
+    echo ""
+    print_success "Successfully installed $extension for PHP $php_version"
+    echo ""
+    echo "Extension file: $dest_file"
+    echo "PHP-FPM will restart automatically."
+}
+
+remove_extension() {
+    local extension="$1"
+    local php_version="$2"
+    local short
+    short=$(version_short "$php_version")
+    local config_dir="$FADOGEN_CONFIG/$short"
+    local ext_dir="$config_dir/extensions"
+
+    # Find and remove .so file
+    local so_file
+    so_file=$(find_extension_so "$ext_dir" "$extension")
+
+    if [ -z "$so_file" ] || [ ! -f "$so_file" ]; then
+        print_error "Extension '$extension' not found for PHP $php_version"
+        echo ""
+        echo "Installed extensions:"
+        list_extensions "$php_version"
+        exit 1
+    fi
+
+    rm -f "$so_file"
+
+    # Update extensions.ini
+    remove_from_extensions_ini "$config_dir" "$extension"
+
+    print_success "Removed $extension from PHP $php_version"
+    echo "PHP-FPM will restart automatically."
+}
+
+list_extensions() {
+    local php_version="$1"
+    local short
+    short=$(version_short "$php_version")
+    local config_dir="$FADOGEN_CONFIG/$short"
+    local ext_dir="$config_dir/extensions"
+    local php_bin="$FADOGEN_BIN/php${short}"
+
+    # Check if PHP version is installed
+    if [ ! -f "$php_bin" ]; then
+        print_error "PHP $php_version is not installed in Fadogen"
+        echo ""
+        echo "Available versions:"
+        for bin in "$FADOGEN_BIN"/php[0-9]*; do
+            [ -f "$bin" ] || continue
+            case "$bin" in
+                *-fpm*|*.default) continue ;;
+            esac
+            local v
+            v=$(basename "$bin" | sed 's/php//')
+            echo "  - ${v%?}.${v#?}"
+        done
+        exit 1
+    fi
+
+    echo "Extensions for PHP $php_version:"
+    echo ""
+
+    # List built-in extensions (from php -m)
+    print_info "Built-in extensions:"
+    # Set PHP_INI_SCAN_DIR to load extensions.ini if it exists
+    local ini_scan_dir=""
+    if [ -d "$config_dir" ]; then
+        ini_scan_dir="$config_dir/"
+    fi
+    PHP_INI_SCAN_DIR="$ini_scan_dir" "$php_bin" -m 2>/dev/null | grep -v '^\[' | sort | while read -r ext; do
+        [ -n "$ext" ] && echo "  - $ext"
+    done
+
+    echo ""
+
+    # List custom extensions installed via fadogen php:ext
+    print_info "Custom extensions (installed via fadogen php:ext):"
+    if [ ! -d "$ext_dir" ]; then
+        echo "  (none)"
+        return
+    fi
+
+    local found=0
+    for so in "$ext_dir"/*.so; do
+        [ -f "$so" ] || continue
+        found=1
+        local name
+        name=$(basename "$so" .so)
+        echo "  - $name"
+    done
+
+    if [ "$found" -eq 0 ]; then
+        echo "  (none)"
+    fi
+}
+
+# ============================================================================
+# extensions.ini Management
+# ============================================================================
+
+update_extensions_ini() {
+    local config_dir="$1"
+    local extension="$2"
+    local so_path="$3"
+    local ext_ini="$config_dir/extensions.ini"
+
+    # Determine directive type
+    local directive="extension"
+    if is_zend_extension "$extension"; then
+        directive="zend_extension"
+    fi
+
+    # Create file if it doesn't exist
+    touch "$ext_ini"
+
+    # Remove existing entry for this extension (if any)
+    if [ -f "$ext_ini" ]; then
+        # Create temp file without matching lines
+        grep -v "${extension}" "$ext_ini" > "$ext_ini.tmp" 2>/dev/null || true
+        mv "$ext_ini.tmp" "$ext_ini"
+    fi
+
+    # Add new entry
+    echo "${directive}=${so_path}" >> "$ext_ini"
+}
+
+remove_from_extensions_ini() {
+    local config_dir="$1"
+    local extension="$2"
+    local ext_ini="$config_dir/extensions.ini"
+
+    if [ -f "$ext_ini" ]; then
+        grep -v "${extension}" "$ext_ini" > "$ext_ini.tmp" 2>/dev/null || true
+        mv "$ext_ini.tmp" "$ext_ini"
+    fi
+}
+
+# ============================================================================
+# Main Command Handler
+# ============================================================================
+
+usage() {
+    echo "Fadogen PHP Extension Manager"
+    echo ""
+    echo "Usage:"
+    echo "  fadogen php:ext install <extension> [--php=<version>]"
+    echo "  fadogen php:ext list [--php=<version>]"
+    echo "  fadogen php:ext remove <extension> [--php=<version>]"
+    echo ""
+    echo "Options:"
+    echo "  --php=<version>  Specify PHP version (e.g., --php=8.3)"
+    echo "                   Defaults to the current default PHP version"
+    echo ""
+    echo "Examples:"
+    echo "  fadogen php:ext install redis"
+    echo "  fadogen php:ext install redis --php=8.3"
+    echo "  fadogen php:ext install imagick"
+    echo "  fadogen php:ext list"
+    echo "  fadogen php:ext list --php=8.4"
+    echo "  fadogen php:ext remove redis"
+    echo ""
+    echo "Common extensions:"
+    echo "  apcu, yaml, uuid, memcached, swoole, grpc"
+}
+
+# Parse arguments
+COMMAND=""
+EXTENSION=""
+PHP_VERSION=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        install|list|remove)
+            COMMAND="$1"
+            ;;
+        --php=*)
+            PHP_VERSION="${1#--php=}"
+            ;;
+        --help|-h)
+            usage
+            exit 0
+            ;;
+        -*)
+            print_error "Unknown option: $1"
+            usage
+            exit 1
+            ;;
+        *)
+            if [ -z "$EXTENSION" ] && [ -n "$COMMAND" ]; then
+                EXTENSION="$1"
+            fi
+            ;;
+    esac
+    shift
+done
+
+# Resolve PHP version
+PHP_VERSION=$(get_php_version "$PHP_VERSION")
+
+# Execute command
+case "$COMMAND" in
+    install)
+        if [ -z "$EXTENSION" ]; then
+            print_error "Extension name required"
+            echo ""
+            usage
+            exit 1
+        fi
+        install_extension "$EXTENSION" "$PHP_VERSION"
+        ;;
+    list)
+        list_extensions "$PHP_VERSION"
+        ;;
+    remove)
+        if [ -z "$EXTENSION" ]; then
+            print_error "Extension name required"
+            echo ""
+            usage
+            exit 1
+        fi
+        remove_extension "$EXTENSION" "$PHP_VERSION"
+        ;;
+    *)
+        usage
+        exit 1
+        ;;
+esac
