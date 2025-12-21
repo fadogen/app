@@ -113,6 +113,19 @@ struct DevelopmentConfigurationView: View {
             .onChange(of: selectedJSRuntime) { _, newValue in
                 updateJSRuntime(newValue)
             }
+
+            // Dev server port for SPA projects (hidden for Laravel/Symfony)
+            if project.framework == nil {
+                LabeledContent("Dev Server") {
+                    TextField("Port", value: $project.devServerPort, format: .number.grouping(.never))
+                        .labelsHidden()
+                        .frame(width: 60)
+                        .multilineTextAlignment(.trailing)
+                        .onChange(of: project.devServerPort) { _, _ in
+                            saveAndReconcile()
+                        }
+                }
+            }
         }
     }
 
@@ -141,6 +154,11 @@ struct DevelopmentConfigurationView: View {
 
     // MARK: - Private
 
+    private func saveAndReconcile() {
+        try? modelContext.save()
+        services.caddyConfig.reconcile(project: project)
+    }
+
     private func openInBrowser() {
         if let url = URL(string: project.localURL) {
             NSWorkspace.shared.open(url)
@@ -154,12 +172,8 @@ struct DevelopmentConfigurationView: View {
             project.phpVersion = nil
         }
 
-        try? modelContext.save()
-
-        // Sync .fadogen file with new PHP version
         try? project.syncPHPVersion()
-
-        services.caddyConfig.reconcile(project: project)
+        saveAndReconcile()
     }
 
     private func updateJSRuntime(_ runtime: JSRuntime) {
@@ -175,11 +189,7 @@ struct DevelopmentConfigurationView: View {
             project.jsPackageManager = "bun"
         }
 
-        try? modelContext.save()
-
-        // Sync .fadogen file with new configuration
         try? project.syncFadogenConfig()
-
-        services.caddyConfig.reconcile(project: project)
+        saveAndReconcile()
     }
 }

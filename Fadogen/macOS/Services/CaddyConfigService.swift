@@ -231,16 +231,75 @@ import projects/*
             return ""
         }
 
+        // SPA with dev server
+        if let devPort = project.devServerPort {
+            return spaProxyCaddyfileContent(for: project, port: devPort)
+        }
+
+        // Standard PHP project
+        return phpCaddyfileContent(for: project)
+    }
+
+    /// Generate HTTP → HTTPS redirect block for a hostname
+    private func httpRedirectBlock(for hostname: String) -> String {
+        return """
+http://\(hostname) {
+    redir https://\(hostname){uri}
+}
+"""
+    }
+
+    /// Generate Caddyfile for SPA project with dev server reverse proxy
+    /// WebSocket support for HMR is automatic with reverse_proxy
+    private func spaProxyCaddyfileContent(for project: LocalProject, port: Int) -> String {
+        let hostname = "\(project.sanitizedName).localhost"
+
+        return """
+\(httpRedirectBlock(for: hostname))
+
+https://\(hostname) {
+    tls internal
+    reverse_proxy localhost:\(port)
+
+    handle_errors {
+        header Content-Type text/html
+        respond <<HTML
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dev Server Not Running</title>
+    <style>
+        body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #1a1a1a; color: #fff; }
+        .container { text-align: center; max-width: 400px; }
+        h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+        code { background: #333; padding: 0.5rem 1rem; border-radius: 4px; display: inline-block; margin-top: 0.5rem; }
+        p { color: #888; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Dev server is not running</h1>
+        <p>Start it with:</p>
+        <code>npm run dev</code>
+        <p style="margin-top: 2rem; font-size: 0.875rem;">Expected on port \(port)</p>
+    </div>
+</body>
+</html>
+HTML 502
+    }
+}
+"""
+    }
+
+    /// Generate standard PHP Caddyfile
+    private func phpCaddyfileContent(for project: LocalProject) -> String {
+        let hostname = "\(project.sanitizedName).localhost"
         let socketPath = phpSocketPath(for: project)
 
         return """
-# HTTP → HTTPS redirect (port 80)
-http://\(project.sanitizedName).localhost {
-    redir https://\(project.sanitizedName).localhost{uri}
-}
+\(httpRedirectBlock(for: hostname))
 
-# HTTPS (port 443)
-https://\(project.sanitizedName).localhost {
+https://\(hostname) {
     tls internal
     root * "\(project.path)"
     encode
