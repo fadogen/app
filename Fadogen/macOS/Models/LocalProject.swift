@@ -25,6 +25,10 @@ final class LocalProject {
     /// "npm" or "bun"
     var jsPackageManager: String?
 
+    /// Dev server port for SPA projects (e.g., 5173 for Vite, 3000 for Next.js)
+    /// When set, Caddy uses reverse_proxy instead of php_fastcgi
+    var devServerPort: Int?
+
     var frameworkRawValue: String?
 
     var framework: FrameworkType? {
@@ -164,6 +168,37 @@ final class LocalProject {
         if require.keys.contains(where: { $0.hasPrefix("symfony/framework-bundle") }) {
             return .symfony
         }
+
+        return nil
+    }
+
+    /// Detect if this is a pure SPA project (no PHP backend)
+    /// Returns suggested dev server port if detected, nil otherwise
+    func detectSPAProject() -> Int? {
+        let projectURL = URL(fileURLWithPath: path)
+        let composerPath = projectURL.appendingPathComponent("composer.json")
+        let packagePath = projectURL.appendingPathComponent("package.json")
+
+        // If composer.json exists, this is a PHP project (Laravel+Vite should NOT trigger)
+        if FileManager.default.fileExists(atPath: composerPath.path) {
+            return nil
+        }
+
+        // Check for package.json with dev script
+        guard FileManager.default.fileExists(atPath: packagePath.path),
+              let data = try? Data(contentsOf: packagePath),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let scripts = json["scripts"] as? [String: String],
+              let devScript = scripts["dev"] else {
+            return nil
+        }
+
+        // Detect framework and return appropriate default port
+        let cmd = devScript.lowercased()
+
+        if cmd.contains("vite") { return 5173 }
+        if cmd.contains("next") { return 3000 }
+        if cmd.contains("nuxt") { return 3000 }
 
         return nil
     }
