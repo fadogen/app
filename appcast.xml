@@ -6,20 +6,19 @@
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
     <item>
-      <title>Version 1.0.2</title>
+      <title>Version 1.1.0</title>
       
       <description><![CDATA[<ul>
-<li>fix(ci): clean Sparkle release notes from GitHub HTML</li>
-<li>feat(caddy): add SPA dev server proxy support</li>
-<li>feat(php): add extension manager CLI via PECL</li>
+<li>feat: add cloudflare tunnel for dev project</li>
+<li>fix(security): add .dockerignore to prevent env files in Docker images</li>
 </ul>]]></description>
-      <pubDate>Sun, 21 Dec 2025 16:39:14 +0000</pubDate>
-      <sparkle:version>35</sparkle:version>
-      <sparkle:shortVersionString>1.0.2</sparkle:shortVersionString>
+      <pubDate>Mon, 22 Dec 2025 13:51:42 +0000</pubDate>
+      <sparkle:version>36</sparkle:version>
+      <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-      <enclosure url="https://github.com/fadogen/app/releases/download/v1.0.2/Fadogen-v1.0.2.dmg"
-                 sparkle:edSignature="hGa8Zal+yobG6QSjMDC6lPd5B8mp2hhWTHNrFO8w/MzhQKIe4B0IuafobvTg5e6TCQ93nNJsWtLe+hBUfXtpDw=="
-                 length="234647159"
+      <enclosure url="https://github.com/fadogen/app/releases/download/v1.1.0/Fadogen-v1.1.0.dmg"
+                 sparkle:edSignature="n5kRTuuoyj6UxQKZwaIgl3tOyiV3nlnLmdsLKcT3EofKcDTWZ1worS9aiUJDUd7r1B+WzMsQN7bZ0m6C9RQMAA=="
+                 length="234748772"
                  type="application/octet-stream"/>
     </item>
   </channel>
