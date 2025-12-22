@@ -49,7 +49,9 @@ struct FadogenApp: App {
                 ComposerVersion.self,
                 ServiceVersion.self,
                 ReverbVersion.self,
-                MailpitConfig.self
+                MailpitConfig.self,
+                LocalTunnelConfig.self,
+                LocalTunnelRoute.self
             ])
 
             let localConfig = ModelConfiguration(
@@ -90,6 +92,8 @@ struct FadogenApp: App {
                 ServiceVersion.self,
                 ReverbVersion.self,
                 MailpitConfig.self,
+                LocalTunnelConfig.self,
+                LocalTunnelRoute.self,
                 // Cloud models
                 DeployedProject.self,
                 Server.self,

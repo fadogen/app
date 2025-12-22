@@ -114,8 +114,8 @@ struct DevelopmentConfigurationView: View {
                 updateJSRuntime(newValue)
             }
 
-            // Dev server port for SPA projects (hidden for Laravel/Symfony)
-            if project.framework == nil {
+            // Dev server port for SPA projects (hidden for PHP frameworks)
+            if project.framework?.isPHP != true {
                 LabeledContent("Dev Server") {
                     TextField("Port", value: $project.devServerPort, format: .number.grouping(.never))
                         .labelsHidden()
@@ -127,6 +127,8 @@ struct DevelopmentConfigurationView: View {
                 }
             }
         }
+
+        ProjectSharingSection(project: project)
     }
 
     // MARK: - Local URL Row

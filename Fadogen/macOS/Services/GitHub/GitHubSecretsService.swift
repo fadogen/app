@@ -175,9 +175,9 @@ final class GitHubSecretsService {
         if let project = project {
             let projectURL = URL(fileURLWithPath: project.path)
 
-            // Framework-specific env file handling
+            // Framework-specific env file handling (PHP projects only)
             switch project.framework {
-            case .symfony:
+            case .symfony?:
                 // Symfony: work in memory, don't create .env.production locally
                 // (Symfony's .env.production is tracked by git by default = security risk)
                 // Additional sections (backup, DNS) are passed in and appended
@@ -188,8 +188,8 @@ final class GitHubSecretsService {
                 )
                 envFileBase64 = try envFileService.encodeContentBase64(envContent)
 
-            case .laravel, .none:
-                // Laravel: create/update .env.production file locally
+            default:
+                // Laravel and other frameworks: create/update .env.production file locally
                 let phpVersion = project.phpVersion?.major ?? "8.4"
                 let phpBinaryPath = FadogenPaths.binaryPath(for: phpVersion)
 

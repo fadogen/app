@@ -20,6 +20,8 @@ final class AppServices {
     let reverb: ReverbManager
     let reverbProcess: ReverbProcessManager
     let mailpit: MailpitService
+    let cloudflaredTunnel: CloudflaredTunnelService
+    let quickTunnel: QuickTunnelService
     let directoryWatcher: DirectoryWatcherService
     let processCleanup: ProcessCleanupService
     let projectGenerator = ProjectGeneratorService()
@@ -40,6 +42,8 @@ final class AppServices {
         self.reverbProcess = ReverbProcessManager(modelContext: modelContext)
         self.reverb = ReverbManager(modelContext: modelContext, reverbProcess: reverbProcess, caddyConfig: caddyConfig)
         self.mailpit = MailpitService(modelContext: modelContext)
+        self.cloudflaredTunnel = CloudflaredTunnelService(modelContext: modelContext, caddyConfig: caddyConfig)
+        self.quickTunnel = QuickTunnelService(modelContext: modelContext)
         self.directoryWatcher = DirectoryWatcherService(modelContext: modelContext, caddyConfig: caddyConfig)
 
         // Inject dependencies into project generator for prerequisite management
@@ -106,6 +110,9 @@ final class AppServices {
         await nodeInit
         await bunInit
 
+        // Cleanup orphaned tunnel routes (projects deleted while app was closed)
+        await cloudflaredTunnel.cleanupOrphanedRoutes()
+
         // Configure service dependencies
         caddy.phpFPM = phpFPM
         caddy.reverbProcess = reverbProcess
@@ -117,6 +124,12 @@ final class AppServices {
         reverbProcess.processCleanup = processCleanup
         mailpit.processCleanup = processCleanup
         mailpit.caddyConfig = caddyConfig
+        cloudflaredTunnel.processCleanup = processCleanup
+        cloudflaredTunnel.quickTunnelService = quickTunnel
+        quickTunnel.processCleanup = processCleanup
+        quickTunnel.caddyConfig = caddyConfig
+        caddyConfig.quickTunnelService = quickTunnel
+        directoryWatcher.setTunnelService(cloudflaredTunnel)
     }
 
     // MARK: - Phase 2: Start web server + databases
@@ -169,6 +182,21 @@ final class AppServices {
 
         // Start Mailpit if autoStart enabled
         await mailpit.startAutoStartService()
+
+        // Start Cloudflared tunnel if active routes exist
+        await startCloudflaredIfConfigured()
+    }
+
+    private func startCloudflaredIfConfigured() async {
+        // Find Cloudflare integration
+        let descriptor = FetchDescriptor<Integration>(
+            predicate: #Predicate { $0.typeRawValue == "cloudflare" }
+        )
+
+        let integration = try? modelContext.fetch(descriptor).first
+
+        // Start tunnel if any active routes exist
+        await cloudflaredTunnel.startIfRoutesExist(integration: integration)
     }
 
     func shutdown() async {
@@ -182,6 +210,12 @@ final class AppServices {
 
         // Stop Mailpit if running
         await mailpit.stop()
+
+        // Stop Cloudflared if running
+        await cloudflaredTunnel.stop()
+
+        // Stop all quick tunnels
+        await quickTunnel.stopAll()
 
         // Stop all PHP-FPM processes
         await phpFPM.stopAll()

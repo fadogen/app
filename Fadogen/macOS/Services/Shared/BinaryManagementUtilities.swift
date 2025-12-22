@@ -132,11 +132,7 @@ nonisolated enum BinaryManagementUtilities {
         config: BinaryCopyConfig,
         logger: Logger
     ) throws -> URL {
-        guard let resourcePath = Bundle.main.resourcePath else {
-            throw BinaryError.bundledResourceNotFound(config.resourceName)
-        }
-
-        let resourceURL = URL(fileURLWithPath: resourcePath)
+        let resourceURL = FadogenPaths.bundleResourcesDirectory
             .appendingPathComponent(config.resourceName)
 
         guard FileManager.default.fileExists(atPath: resourceURL.path) else {
@@ -191,13 +187,8 @@ nonisolated enum BinaryManagementUtilities {
     // MARK: - Detection
 
     static func detectBundledBinary(named resourceName: String) -> Bool {
-        guard let resourcePath = Bundle.main.resourcePath else {
-            return false
-        }
-
-        let resourceURL = URL(fileURLWithPath: resourcePath)
+        let resourceURL = FadogenPaths.bundleResourcesDirectory
             .appendingPathComponent(resourceName)
-
         return FileManager.default.fileExists(atPath: resourceURL.path)
     }
 

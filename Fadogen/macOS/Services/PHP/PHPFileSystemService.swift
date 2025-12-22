@@ -123,12 +123,7 @@ nonisolated enum PHPFileSystemService {
 
     /// Returns e.g. "8.3" or nil if no bundled PHP
     static func detectBundledVersion() async -> String? {
-        guard let resourcePath = Bundle.main.resourcePath else {
-            logger.warning("Bundle resource path not found")
-            return nil
-        }
-
-        let bundledPHPPath = URL(fileURLWithPath: resourcePath)
+        let bundledPHPPath = FadogenPaths.bundleResourcesDirectory
             .appendingPathComponent("php-cli")
 
         guard FileManager.default.fileExists(atPath: bundledPHPPath.path) else {
@@ -157,13 +152,9 @@ nonisolated enum PHPFileSystemService {
     }
 
     static func copyBundledBinary(major: String) throws -> (cli: URL, fpm: URL) {
-        guard let resourcePath = Bundle.main.resourcePath else {
-            throw PHPFileSystemError.bundledBinaryNotFound
-        }
-
-        let resourceURL = URL(fileURLWithPath: resourcePath)
-        let bundledCLI = resourceURL.appendingPathComponent("php-cli")
-        let bundledFPM = resourceURL.appendingPathComponent("php-fpm")
+        let resourceDir = FadogenPaths.bundleResourcesDirectory
+        let bundledCLI = resourceDir.appendingPathComponent("php-cli")
+        let bundledFPM = resourceDir.appendingPathComponent("php-fpm")
 
         // Verify bundled binaries exist
         guard FileManager.default.fileExists(atPath: bundledCLI.path) else {

@@ -88,15 +88,16 @@ nonisolated enum FadogenPaths {
         dataDirectory.appendingPathComponent("caddy")
     }
 
-    /// Mailpit data directory: ~/Library/Application Support/Fadogen/data/mailpit
-    /// Used for Mailpit SQLite database
-    static var mailpitDataDirectory: URL {
-        dataDirectory.appendingPathComponent("mailpit")
-    }
-
     /// Caddy projects directory: ~/Library/Application Support/Fadogen/config/caddy/projects
     static var caddyProjectsDirectory: URL {
         caddyConfigDirectory.appendingPathComponent("projects")
+    }
+
+    /// Caddy binary path (bundled in app)
+    /// Local web server for serving projects
+    /// - Returns: URL like .../Contents/Resources/caddy
+    static var caddyPath: URL {
+        bundleResourcesDirectory.appendingPathComponent("caddy")
     }
 
     /// Reverb binary directory: /Users/Shared/Fadogen/reverb
@@ -293,6 +294,12 @@ nonisolated enum FadogenPaths {
     /// - Returns: URL like .../Contents/Resources/mailpit
     static var mailpitBinaryPath: URL {
         bundleResourcesDirectory.appendingPathComponent("mailpit")
+    }
+
+    /// Mailpit data directory: ~/Library/Application Support/Fadogen/data/mailpit
+    /// Used for Mailpit SQLite database
+    static var mailpitDataDirectory: URL {
+        dataDirectory.appendingPathComponent("mailpit")
     }
 
     // MARK: - Docker Templates

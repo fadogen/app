@@ -140,13 +140,8 @@ nonisolated enum NodeFileSystemService {
 
     /// Returns e.g. "22" or nil if no bundled Node.js
     static func detectBundledVersion() async -> String? {
-        guard let resourcePath = Bundle.main.resourcePath else {
-            logger.warning("Bundle resource path not found")
-            return nil
-        }
-
         // Bundled node is in Resources/node/bin/node
-        let nodeBinary = URL(fileURLWithPath: resourcePath)
+        let nodeBinary = FadogenPaths.bundleResourcesDirectory
             .appendingPathComponent("node/bin/node")
 
         guard FileManager.default.fileExists(atPath: nodeBinary.path) else {
@@ -186,11 +181,7 @@ nonisolated enum NodeFileSystemService {
     }
 
     static func copyBundledInstallation(major: String) throws -> URL {
-        guard let resourcePath = Bundle.main.resourcePath else {
-            throw NodeFileSystemError.resourceNotFound(String(localized: "Bundle resource path"))
-        }
-
-        let bundledDir = URL(fileURLWithPath: resourcePath)
+        let bundledDir = FadogenPaths.bundleResourcesDirectory
             .appendingPathComponent("node")
 
         guard FileManager.default.fileExists(atPath: bundledDir.path) else {

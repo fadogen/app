@@ -52,14 +52,8 @@ class CaddyService {
                 // Create Application Support directory
                 let configDir = try createConfigDirectory()
 
-                // Get Caddy binary path from bundle
-                guard let resourcePath = Bundle.main.resourcePath else {
-                    throw CaddyError.binaryNotFound
-                }
-                let caddyPath = "\(resourcePath)/caddy"
-
                 // Convert to FilePath for Subprocess
-                let caddyFilePath: FilePath = .init(caddyPath)
+                let caddyFilePath: FilePath = .init(FadogenPaths.caddyPath.path)
                 let workingDir: FilePath = .init(configDir.path)
 
                 // Capture the result to check termination status
@@ -258,16 +252,11 @@ class CaddyService {
                 // The CA doesn't change during reload, only the configuration (PHP socket path)
                 // Existing certificates remain valid and signed by the same CA
 
-                guard let resourcePath = Bundle.main.resourcePath else {
-                    throw CaddyError.binaryNotFound
-                }
-
-                let caddyPath = "\(resourcePath)/caddy"
                 let configPath = FadogenPaths.caddyConfigDirectory
                     .appendingPathComponent("Caddyfile").path
 
                 _ = try await run(
-                    .path(.init(caddyPath)),
+                    .path(.init(FadogenPaths.caddyPath.path)),
                     arguments: ["reload", "--config", configPath],
                     environment: .inherit.updating(caddyEnvironment),
                     output: .discarded,

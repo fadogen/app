@@ -103,8 +103,8 @@ final class CloudflareService {
 
             allZones.append(contentsOf: zones)
 
-            if let resultInfo = response.resultInfo {
-                hasMorePages = currentPage < resultInfo.totalPages
+            if let resultInfo = response.resultInfo, let totalPages = resultInfo.totalPages {
+                hasMorePages = currentPage < totalPages
                 currentPage += 1
             } else {
                 hasMorePages = false
@@ -165,7 +165,26 @@ final class CloudflareService {
         return tunnel
     }
 
-    func configureTunnelIngress(
+    /// Get existing tunnel by name, or create a new one if it doesn't exist
+    func getOrCreateTunnel(name: String, accountID: String, email: String, apiKey: String) async throws -> CloudflareTunnelInfo {
+        // First, try to find an existing tunnel with this name
+        let client = createClient(email: email, apiKey: apiKey)
+        let searchEndpoint = "accounts/\(accountID)/cfd_tunnel?name=\(name)"
+        let searchResponse: CloudflareAPIResponse<[CloudflareTunnelInfo]> = try await client.request(
+            searchEndpoint,
+            method: "GET",
+            body: nil
+        )
+
+        if searchResponse.success, let tunnels = searchResponse.result, let existing = tunnels.first {
+            return existing
+        }
+
+        // Tunnel doesn't exist, create it
+        return try await createTunnel(name: name, accountID: accountID, email: email, apiKey: apiKey)
+    }
+
+    private func configureTunnelIngress(
         tunnelID: String,
         sshHostname: String,
         accountID: String,
@@ -221,14 +240,17 @@ final class CloudflareService {
             body: nil
         )
 
-        guard response.success, let config = response.result else {
+        guard response.success, let result = response.result else {
             throw CloudflareError.apiError(
                 code: response.errors.first?.code ?? 0,
                 message: response.errorMessage()
             )
         }
 
-        return config.config
+        // Return config or empty configuration with default catch-all rule
+        return result.config ?? TunnelConfiguration(ingress: [
+            IngressRule(hostname: nil, service: "http_status:404")
+        ])
     }
 
     /// Idempotent: skips if route already exists
@@ -370,59 +392,6 @@ final class CloudflareService {
         }
     }
 
-    func getTunnel(tunnelID: String, accountID: String, email: String, apiKey: String) async throws -> CloudflareTunnelInfo {
-        let client = createClient(email: email, apiKey: apiKey)
-        let endpoint = "accounts/\(accountID)/cfd_tunnel/\(tunnelID)"
-        let response: CloudflareAPIResponse<CloudflareTunnelInfo> = try await client.request(
-            endpoint,
-            method: "GET",
-            body: nil
-        )
-
-        guard response.success, let tunnel = response.result else {
-            throw CloudflareError.apiError(
-                code: response.errors.first?.code ?? 0,
-                message: response.errorMessage()
-            )
-        }
-
-        return tunnel
-    }
-
-    func listTunnels(accountID: String, email: String, apiKey: String) async throws -> [CloudflareTunnelInfo] {
-        let client = createClient(email: email, apiKey: apiKey)
-        var allTunnels: [CloudflareTunnelInfo] = []
-        var currentPage = 1
-        var hasMorePages = true
-
-        while hasMorePages {
-            let endpoint = "accounts/\(accountID)/cfd_tunnel?per_page=50&page=\(currentPage)"
-            let response: CloudflareAPIResponse<[CloudflareTunnelInfo]> = try await client.request(
-                endpoint,
-                method: "GET",
-                body: nil
-            )
-
-            guard response.success, let tunnels = response.result else {
-                throw CloudflareError.apiError(
-                    code: response.errors.first?.code ?? 0,
-                    message: response.errorMessage()
-                )
-            }
-
-            allTunnels.append(contentsOf: tunnels)
-
-            if let resultInfo = response.resultInfo {
-                hasMorePages = currentPage < resultInfo.totalPages
-                currentPage += 1
-            } else {
-                hasMorePages = false
-            }
-        }
-
-        return allTunnels
-    }
-
     func deleteTunnel(tunnelID: String, accountID: String, email: String, apiKey: String) async throws {
         let client = createClient(email: email, apiKey: apiKey)
         let endpoint = "accounts/\(accountID)/cfd_tunnel/\(tunnelID)?cascade=true"
@@ -438,6 +407,26 @@ final class CloudflareService {
                 message: response.errorMessage()
             )
         }
+    }
+
+    /// Get the token used to run a tunnel with cloudflared
+    func getTunnelToken(tunnelID: String, accountID: String, email: String, apiKey: String) async throws -> String {
+        let client = createClient(email: email, apiKey: apiKey)
+        let endpoint = "accounts/\(accountID)/cfd_tunnel/\(tunnelID)/token"
+        let response: CloudflareAPIResponse<String> = try await client.request(
+            endpoint,
+            method: "GET",
+            body: nil
+        )
+
+        guard response.success, let token = response.result else {
+            throw CloudflareError.apiError(
+                code: response.errors.first?.code ?? 0,
+                message: response.errorMessage()
+            )
+        }
+
+        return token
     }
 
     // MARK: - DNS
@@ -533,8 +522,8 @@ final class CloudflareService {
 
             allRecords.append(contentsOf: records)
 
-            if let resultInfo = response.resultInfo {
-                hasMorePages = currentPage < resultInfo.totalPages
+            if let resultInfo = response.resultInfo, let totalPages = resultInfo.totalPages {
+                hasMorePages = currentPage < totalPages
                 currentPage += 1
             } else {
                 hasMorePages = false
@@ -638,46 +627,6 @@ final class CloudflareService {
                 apiKey: apiKey
             )
             throw error
-        }
-    }
-
-    func removeTunnelForServer(
-        tunnelID: String,
-        dnsRecordID: String,
-        zoneID: String,
-        accountID: String,
-        integration: Integration
-    ) async throws {
-        guard let email = integration.credentials.email,
-              let apiKey = integration.credentials.globalAPIKey else {
-            throw CloudflareError.unauthorized
-        }
-        var errors: [Error] = []
-
-        do {
-            try await deleteDNSRecord(
-                recordID: dnsRecordID,
-                zoneID: zoneID,
-                email: email,
-                apiKey: apiKey
-            )
-        } catch {
-            errors.append(error)
-        }
-
-        do {
-            try await deleteTunnel(
-                tunnelID: tunnelID,
-                accountID: accountID,
-                email: email,
-                apiKey: apiKey
-            )
-        } catch {
-            errors.append(error)
-        }
-
-        if let firstError = errors.first {
-            throw firstError
         }
     }
 
