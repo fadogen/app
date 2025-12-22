@@ -43,7 +43,7 @@ struct CloudflareResultInfo: Codable, Sendable {
     let page: Int
     let perPage: Int
     let totalCount: Int
-    let totalPages: Int
+    let totalPages: Int?  // Optional: not all endpoints return this
 
     enum CodingKeys: String, CodingKey {
         case page
@@ -283,7 +283,7 @@ enum CloudflareError: Error, LocalizedError {
 // MARK: - Tunnel Configuration
 
 struct TunnelConfigurationResponse: Codable {
-    let config: TunnelConfiguration
+    let config: TunnelConfiguration?
 }
 
 struct TunnelConfiguration: Codable {

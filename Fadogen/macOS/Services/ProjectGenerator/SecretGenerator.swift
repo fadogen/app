@@ -1,4 +1,6 @@
 import Foundation
+import Subprocess
+import System
 
 /// APP_KEY is generated via `php artisan key:generate` during deployment
 enum SecretGenerator {
@@ -71,5 +73,41 @@ enum SecretGenerator {
         let result = sanitized.first?.isLetter == true ? sanitized : "u_\(sanitized)"
 
         return String(result.prefix(16))
+    }
+
+    // MARK: - Caddy Basic Auth
+
+    /// Hash password using Caddy's bcrypt for basicauth directive
+    static func hashPasswordWithCaddy(_ password: String) async throws -> String {
+        let caddyPath = FadogenPaths.caddyPath
+
+        let result = try await Subprocess.run(
+            .path(FilePath(caddyPath.path)),
+            arguments: ["hash-password", "--plaintext", password],
+            output: .bytes(limit: 1024),
+            error: .discarded
+        )
+
+        guard result.terminationStatus.isSuccess else {
+            throw SecretGeneratorError.hashingFailed
+        }
+
+        guard let hash = String(bytes: result.standardOutput, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) else {
+            throw SecretGeneratorError.hashingFailed
+        }
+
+        return hash
+    }
+}
+
+enum SecretGeneratorError: LocalizedError {
+    case hashingFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .hashingFailed:
+            return "Failed to hash password with Caddy"
+        }
     }
 }

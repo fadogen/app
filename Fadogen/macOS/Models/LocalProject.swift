@@ -3,9 +3,79 @@ import Subprocess
 import SwiftData
 import System
 
-enum FrameworkType: String, Codable {
-    case laravel = "laravel"
-    case symfony = "symfony"
+/// Unified framework type for all project types (PHP and SPA)
+/// Marked nonisolated to allow access from SwiftData models
+nonisolated enum ProjectFramework: String, Codable, Sendable {
+    // PHP frameworks
+    case laravel
+    case symfony
+
+    // Meta-frameworks (SSR/SSG capable, require server)
+    case nextjs
+    case nuxt
+    case sveltekit
+
+    // Vite-based SPAs (static output)
+    case react
+    case vue
+    case svelte
+
+    /// Whether this is a PHP backend framework
+    var isPHP: Bool { self == .laravel || self == .symfony }
+
+    /// Whether this is a SPA/JavaScript framework
+    var isSPA: Bool { !isPHP }
+
+    /// Default dev server port for SPA frameworks
+    var defaultDevPort: Int? {
+        switch self {
+        case .laravel, .symfony: return nil
+        case .nextjs, .nuxt: return 3000
+        case .sveltekit, .react, .vue, .svelte: return 5173
+        }
+    }
+
+    /// Default build output folder (relative to project root)
+    var defaultBuildPath: String? {
+        switch self {
+        case .laravel, .symfony: return nil
+        case .nextjs: return "out"
+        case .nuxt: return ".output/public"
+        case .sveltekit: return "build"
+        case .react, .vue, .svelte: return "dist"
+        }
+    }
+
+    /// Whether this framework can serve static files without a server
+    var supportsStaticExport: Bool { defaultBuildPath != nil }
+
+    /// Display name for UI
+    var displayName: String {
+        switch self {
+        case .laravel: return "Laravel"
+        case .symfony: return "Symfony"
+        case .nextjs: return "Next.js"
+        case .nuxt: return "Nuxt"
+        case .sveltekit: return "SvelteKit"
+        case .react: return "React"
+        case .vue: return "Vue"
+        case .svelte: return "Svelte"
+        }
+    }
+
+    /// Asset name for icon in Assets.xcassets
+    var assetName: String {
+        switch self {
+        case .laravel: return "laravel"
+        case .symfony: return "symfony"
+        case .nextjs: return "nextdotjs"
+        case .nuxt: return "nuxt"
+        case .sveltekit: return "svelte"
+        case .react: return "react"
+        case .vue: return "vuedotjs"
+        case .svelte: return "svelte"
+        }
+    }
 }
 
 /// Local development project (not synced to CloudKit)
@@ -25,14 +95,20 @@ final class LocalProject {
     /// "npm" or "bun"
     var jsPackageManager: String?
 
+    /// Cleartext sharing password for display (nil = no protection)
+    var sharingPassword: String?
+
+    /// Bcrypt hash of sharing password for Caddy basicauth (nil = no protection)
+    var sharingPasswordHash: String?
+
     /// Dev server port for SPA projects (e.g., 5173 for Vite, 3000 for Next.js)
     /// When set, Caddy uses reverse_proxy instead of php_fastcgi
     var devServerPort: Int?
 
     var frameworkRawValue: String?
 
-    var framework: FrameworkType? {
-        get { frameworkRawValue.flatMap { FrameworkType(rawValue: $0) } }
+    var framework: ProjectFramework? {
+        get { frameworkRawValue.flatMap { ProjectFramework(rawValue: $0) } }
         set { frameworkRawValue = newValue?.rawValue }
     }
 
@@ -64,6 +140,24 @@ final class LocalProject {
 
     var githubRepo: String? {
         gitRemoteURL?.githubRepo
+    }
+
+    /// Whether this is a pure SPA project (no PHP backend)
+    var isSPAProject: Bool {
+        framework?.isSPA ?? false
+    }
+
+    /// Whether this is a PHP project (Laravel/Symfony)
+    var isPHPProject: Bool {
+        framework?.isPHP ?? false
+    }
+
+    /// Full path to static build output (derived from framework default)
+    var fullStaticBuildPath: String? {
+        guard let buildPath = framework?.defaultBuildPath else { return nil }
+        return URL(fileURLWithPath: path)
+            .appendingPathComponent(buildPath)
+            .path
     }
 
     /// Returns nil if name cannot be sanitized to valid RFC 1123 hostname
@@ -143,64 +237,73 @@ final class LocalProject {
         return GitRepository(remoteURL: remoteURL, branch: branch ?? "main")
     }
 
-    func detectFramework() throws -> FrameworkType? {
-        let composerPath = URL(fileURLWithPath: path)
-            .appendingPathComponent("composer.json")
-
-        guard FileManager.default.fileExists(atPath: composerPath.path) else {
-            return nil
-        }
-
-        let data = try Data(contentsOf: composerPath)
-
-        // Parse JSON to check for framework packages
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let require = json["require"] as? [String: Any] else {
-            return nil
-        }
-
-        // Check for Laravel
-        if require.keys.contains(where: { $0.hasPrefix("laravel/framework") }) {
-            return .laravel
-        }
-
-        // Check for Symfony
-        if require.keys.contains(where: { $0.hasPrefix("symfony/framework-bundle") }) {
-            return .symfony
-        }
-
-        return nil
-    }
-
-    /// Detect if this is a pure SPA project (no PHP backend)
-    /// Returns suggested dev server port if detected, nil otherwise
-    func detectSPAProject() -> Int? {
+    /// Detect framework from composer.json (PHP) or package.json (SPA)
+    /// Sets framework and devServerPort as appropriate
+    /// Returns the detected framework, or nil if no framework detected
+    @discardableResult
+    func detectFramework() -> ProjectFramework? {
         let projectURL = URL(fileURLWithPath: path)
         let composerPath = projectURL.appendingPathComponent("composer.json")
         let packagePath = projectURL.appendingPathComponent("package.json")
 
-        // If composer.json exists, this is a PHP project (Laravel+Vite should NOT trigger)
-        if FileManager.default.fileExists(atPath: composerPath.path) {
+        // Try PHP framework detection first (composer.json)
+        if FileManager.default.fileExists(atPath: composerPath.path),
+           let data = try? Data(contentsOf: composerPath),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let require = json["require"] as? [String: Any] {
+
+            if require.keys.contains(where: { $0.hasPrefix("laravel/framework") }) {
+                self.framework = .laravel
+                return .laravel
+            }
+
+            if require.keys.contains(where: { $0.hasPrefix("symfony/framework-bundle") }) {
+                self.framework = .symfony
+                return .symfony
+            }
+
+            // Has composer.json but no recognized PHP framework
+            // Don't check package.json (Laravel+Vite should NOT trigger SPA detection)
             return nil
         }
 
-        // Check for package.json with dev script
+        // Try SPA framework detection (package.json, only if no composer.json)
         guard FileManager.default.fileExists(atPath: packagePath.path),
               let data = try? Data(contentsOf: packagePath),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let scripts = json["scripts"] as? [String: String],
-              let devScript = scripts["dev"] else {
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return nil
         }
 
-        // Detect framework and return appropriate default port
-        let cmd = devScript.lowercased()
+        let dependencies = (json["dependencies"] as? [String: Any]) ?? [:]
+        let devDependencies = (json["devDependencies"] as? [String: Any]) ?? [:]
+        let allDeps = Set(dependencies.keys).union(devDependencies.keys)
 
-        if cmd.contains("vite") { return 5173 }
-        if cmd.contains("next") { return 3000 }
-        if cmd.contains("nuxt") { return 3000 }
+        // Detect SPA framework (order matters - more specific first)
+        let detectedFramework: ProjectFramework?
 
-        return nil
+        if allDeps.contains("next") {
+            detectedFramework = .nextjs
+        } else if allDeps.contains("nuxt") {
+            detectedFramework = .nuxt
+        } else if allDeps.contains("@sveltejs/kit") {
+            detectedFramework = .sveltekit
+        } else if allDeps.contains("react") || allDeps.contains("react-dom") {
+            detectedFramework = .react
+        } else if allDeps.contains("vue") {
+            detectedFramework = .vue
+        } else if allDeps.contains("svelte") && !allDeps.contains("@sveltejs/kit") {
+            detectedFramework = .svelte
+        } else {
+            detectedFramework = nil
+        }
+
+        // Set framework and defaults if detected
+        if let framework = detectedFramework {
+            self.framework = framework
+            self.devServerPort = framework.defaultDevPort
+        }
+
+        return detectedFramework
     }
 
     // MARK: - Git Operations

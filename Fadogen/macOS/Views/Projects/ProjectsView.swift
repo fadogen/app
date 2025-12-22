@@ -129,10 +129,25 @@ struct ProjectRow: View {
     let project: LocalProject
     let deployedProjects: [DeployedProject]
 
+    @Query private var tunnelRoutes: [LocalTunnelRoute]
+    @Environment(AppServices.self) private var appServices
+
     /// Get linked DeployedProject if exists
     private var linkedDeployedProject: DeployedProject? {
         guard let linkedID = project.linkedDeployedProjectID else { return nil }
         return deployedProjects.first { $0.id == linkedID }
+    }
+
+    /// Check if this project has any active sharing (quick tunnel OR permanent route)
+    private var isSharing: Bool {
+        // Check for permanent tunnel route
+        let hasPermanentRoute = tunnelRoutes.contains { $0.projectID == project.id && $0.isActive }
+            && appServices.cloudflaredTunnel.isRunning
+
+        // Check for quick tunnel
+        let hasQuickTunnel = appServices.quickTunnel.isActive(for: project.id)
+
+        return hasPermanentRoute || hasQuickTunnel
     }
 
     var body: some View {
@@ -141,18 +156,22 @@ struct ProjectRow: View {
                 .font(.body)
                 .fontWeight(.medium)
 
+            // On-air indicator for shared projects
+            if isSharing {
+                OnAirIndicator()
+            }
+
             Spacer()
 
             // Dynamic icon badges (right-aligned, trailing edge)
             HStack(spacing: 6) {
-                // Framework icon
+                // Framework icon (Laravel/Symfony/React/Vue/etc)
                 if let framework = project.framework {
-                    Image(framework.rawValue)
+                    Image(framework.assetName)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 13, height: 13)
-                        .foregroundStyle(.primary)
-                        .help("\(framework.rawValue.capitalized) framework")
+                        .help("\(framework.displayName) project")
                 }
 
                 // Deployment status icon (from linked DeployedProject)
@@ -247,5 +266,24 @@ struct DeployedProjectRow: View {
         .padding(.vertical, 8)
         .padding(.horizontal, 16)
         .contentShape(Rectangle())
+    }
+}
+
+/// Pulsing green "on-air" indicator for shared projects
+private struct OnAirIndicator: View {
+    @State private var isPulsing = false
+
+    var body: some View {
+        Circle()
+            .fill(Color.green)
+            .frame(width: 8, height: 8)
+            .opacity(isPulsing ? 1.0 : 0.6)
+            .animation(
+                .easeInOut(duration: 1.0)
+                .repeatForever(autoreverses: true),
+                value: isPulsing
+            )
+            .onAppear { isPulsing = true }
+            .help("Shared publicly")
     }
 }

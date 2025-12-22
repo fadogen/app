@@ -135,8 +135,15 @@ struct ProjectDetailView: View {
     }
 
     enum ProjectTab: String, CaseIterable {
-        case development = "Development"
-        case production = "Production"
+        case development
+        case production
+
+        var localizedName: String {
+            switch self {
+            case .development: String(localized: "Development")
+            case .production: String(localized: "Production")
+            }
+        }
     }
 
     // MARK: - Body
@@ -324,7 +331,7 @@ struct ProjectDetailView: View {
         ToolbarItem(placement: .principal) {
             Picker(selection: $selectedTab) {
                 ForEach(ProjectTab.allCases, id: \.self) { tab in
-                    Text(tab.rawValue).tag(tab)
+                    Text(tab.localizedName).tag(tab)
                 }
             } label: {
                 EmptyView()
@@ -660,9 +667,7 @@ struct ProjectDetailView: View {
             }
 
             // Re-detect framework
-            if let detected = try? project.detectFramework() {
-                project.framework = detected
-            }
+            project.detectFramework()
 
             try? modelContext.save()
             appServices.caddyConfig.reconcile(project: project)

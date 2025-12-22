@@ -7,6 +7,7 @@ import System
 final class CaddyConfigService {
     private let modelContext: ModelContext
     private let caddy: CaddyService
+    weak var quickTunnelService: QuickTunnelService?
 
     init(modelContext: ModelContext, caddy: CaddyService) {
         self.modelContext = modelContext
@@ -185,12 +186,9 @@ import projects/*
 
     /// Format a Caddyfile using caddy fmt
     private func formatCaddyfile(at path: URL) {
-        guard let caddyBinary = Bundle.main.resourcePath else { return }
-        let caddyPath = "\(caddyBinary)/caddy"
-
         Task {
             try? await run(
-                .path(.init(caddyPath)),
+                .path(.init(FadogenPaths.caddyPath.path)),
                 arguments: ["fmt", "--overwrite", path.path],
                 output: .discarded,
                 error: .discarded
@@ -226,18 +224,44 @@ import projects/*
     /// - Parameter project: The project to generate content for
     /// - Returns: Caddyfile content as string
     private func caddyfileContent(for project: LocalProject) -> String {
-        // Safety check: path must exist (should be guaranteed by caller filtering)
-        guard FileManager.default.fileExists(atPath: project.path) else {
-            return ""
+        guard FileManager.default.fileExists(atPath: project.path) else { return "" }
+
+        let localHostname = "\(project.sanitizedName).localhost"
+        let publicHostnames = getPublicHostnames(for: project)
+        let hasTunnel = !publicHostnames.isEmpty
+        let content = siteContent(for: project, hasTunnel: hasTunnel)
+
+        // Password protection: separate blocks for local (no auth) and public (with auth)
+        if let hash = project.sharingPasswordHash, hasTunnel {
+            return siteBlock(hostnames: [localHostname], content: content)
+                 + "\n\n"
+                 + siteBlock(hostnames: publicHostnames, content: content, passwordHash: hash)
         }
 
-        // SPA with dev server
-        if let devPort = project.devServerPort {
-            return spaProxyCaddyfileContent(for: project, port: devPort)
+        // Single block for all hostnames
+        return siteBlock(hostnames: [localHostname] + publicHostnames, content: content)
+    }
+
+    /// Get public hostnames from LocalTunnelRoute and QuickTunnelService for a project
+    private func getPublicHostnames(for project: LocalProject) -> [String] {
+        var hostnames: [String] = []
+
+        // Get hostnames from permanent tunnel routes (LocalTunnelRoute)
+        let projectID = project.id
+        let descriptor = FetchDescriptor<LocalTunnelRoute>(
+            predicate: #Predicate { $0.projectID == projectID && $0.isActive == true }
+        )
+
+        if let routes = try? modelContext.fetch(descriptor) {
+            hostnames.append(contentsOf: routes.map { $0.hostname })
         }
 
-        // Standard PHP project
-        return phpCaddyfileContent(for: project)
+        // Get hostname from active quick tunnel (in-memory)
+        if let quickTunnel = quickTunnelService?.tunnel(for: project.id) {
+            hostnames.append(quickTunnel.hostname)
+        }
+
+        return hostnames
     }
 
     /// Generate HTTP → HTTPS redirect block for a hostname
@@ -249,25 +273,25 @@ http://\(hostname) {
 """
     }
 
-    /// Generate Caddyfile for SPA project with dev server reverse proxy
-    /// WebSocket support for HMR is automatic with reverse_proxy
-    private func spaProxyCaddyfileContent(for project: LocalProject, port: Int) -> String {
-        let hostname = "\(project.sanitizedName).localhost"
-
+    /// Generate basicauth block for password-protected public sharing
+    private func basicauthBlock(hash: String) -> String {
         return """
-\(httpRedirectBlock(for: hostname))
+    basicauth {
+        user \(hash)
+    }
+"""
+    }
 
-https://\(hostname) {
-    tls internal
-    reverse_proxy localhost:\(port)
-
+    /// Generate error page HTML for Caddy handle_errors directive
+    private func errorPage(title: String, message: String, command: String, detail: String, code: Int) -> String {
+        """
     handle_errors {
         header Content-Type text/html
         respond <<HTML
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Dev Server Not Running</title>
+    <title>\(title)</title>
     <style>
         body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #1a1a1a; color: #fff; }
         .container { text-align: center; max-width: 400px; }
@@ -278,38 +302,114 @@ https://\(hostname) {
 </head>
 <body>
     <div class="container">
-        <h1>Dev server is not running</h1>
-        <p>Start it with:</p>
-        <code>npm run dev</code>
-        <p style="margin-top: 2rem; font-size: 0.875rem;">Expected on port \(port)</p>
+        <h1>\(title)</h1>
+        <p>\(message)</p>
+        <code>\(command)</code>
+        <p style="margin-top: 2rem; font-size: 0.875rem;">\(detail)</p>
     </div>
 </body>
 </html>
-HTML 502
+HTML \(code)
     }
-}
 """
     }
 
-    /// Generate standard PHP Caddyfile
-    private func phpCaddyfileContent(for project: LocalProject) -> String {
-        let hostname = "\(project.sanitizedName).localhost"
-        let socketPath = phpSocketPath(for: project)
+    // MARK: - Site Content Types
 
-        return """
-\(httpRedirectBlock(for: hostname))
+    /// Represents the type of content a Caddy site block should serve
+    private enum SiteContent {
+        case reverseProxy(port: Int)
+        case staticFiles(buildPath: String)
+        case php(socketPath: String, projectPath: String)
 
-https://\(hostname) {
-    tls internal
-    root * "\(project.path)"
+        var directives: String {
+            switch self {
+            case .reverseProxy(let port):
+                return "reverse_proxy localhost:\(port)"
+            case .staticFiles(let buildPath):
+                return """
+    root * "\(buildPath)"
+    encode gzip
+    try_files {path} /index.html
+    file_server
+"""
+            case .php(let socketPath, let projectPath):
+                return """
+    root * "\(projectPath)"
     encode
     php_fastcgi "unix/\(socketPath)" {
         try_files /public{path} /public/index.php {path} /index.php
     }
     file_server
-}
 """
+            }
+        }
     }
+
+    /// Determine site content type for a project
+    private func siteContent(for project: LocalProject, hasTunnel: Bool) -> SiteContent {
+        // Tunnel active + build folder = serve static (Vite can't dual-serve)
+        if hasTunnel, let buildPath = project.fullStaticBuildPath {
+            return .staticFiles(buildPath: buildPath)
+        }
+        // Dev server configured (no tunnel or no build)
+        if let devPort = project.devServerPort {
+            return .reverseProxy(port: devPort)
+        }
+        // Static build only
+        if let buildPath = project.fullStaticBuildPath {
+            return .staticFiles(buildPath: buildPath)
+        }
+        // PHP project
+        return .php(socketPath: phpSocketPath(for: project), projectPath: project.path)
+    }
+
+    /// Generate a complete Caddy site block
+    private func siteBlock(hostnames: [String], content: SiteContent, passwordHash: String? = nil) -> String {
+        guard !hostnames.isEmpty else { return "" }
+
+        let redirects = hostnames.map { httpRedirectBlock(for: $0) }.joined(separator: "\n\n")
+        let hosts = hostnames.map { "https://\($0)" }.joined(separator: ", ")
+
+        var block = """
+\(redirects)
+
+\(hosts) {
+    tls internal
+"""
+        if let hash = passwordHash {
+            block += "\n" + basicauthBlock(hash: hash)
+        }
+
+        block += "\n" + content.directives
+
+        // Add error handler for non-PHP content types
+        switch content {
+        case .reverseProxy(let port):
+            block += "\n\n" + errorPage(
+                title: "Dev server is not running",
+                message: "Start it with:",
+                command: "npm run dev",
+                detail: "Expected on port \(port)",
+                code: 502
+            )
+        case .staticFiles(let buildPath):
+            block += "\n\n" + errorPage(
+                title: "Build not found",
+                message: "Build your project first:",
+                command: "npm run build",
+                detail: "Expected at: \(buildPath)",
+                code: 404
+            )
+        case .php:
+            break // PHP errors handled by PHP-FPM
+        }
+
+        block += "\n}"
+        return block
+    }
+
+    // MARK: - PHP Socket Path
 
     /// Determine PHP socket path for a project
     /// Uses project's custom PHP version or default version

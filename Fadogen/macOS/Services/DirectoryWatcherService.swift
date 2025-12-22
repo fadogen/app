@@ -6,6 +6,7 @@ final class DirectoryWatcherService {
     private let modelContext: ModelContext
     private let caddyConfig: CaddyConfigService
     private var linkingService: ProjectLinkingService?
+    private var tunnelService: CloudflaredTunnelService?
 
     // Active monitors: path -> DispatchSource
     private var activeMonitors: [String: DispatchSourceFileSystemObject] = [:]
@@ -20,6 +21,10 @@ final class DirectoryWatcherService {
 
     func setLinkingService(_ service: ProjectLinkingService) {
         self.linkingService = service
+    }
+
+    func setTunnelService(_ service: CloudflaredTunnelService) {
+        self.tunnelService = service
     }
 
     /// Synchronize monitors with SwiftData (single source of truth)
@@ -56,9 +61,44 @@ final class DirectoryWatcherService {
         // Auto-link newly created projects to existing DeployedProjects
         linkingService?.autoLinkOrphanedProjects()
 
+        // Migrate existing projects: detect framework if not set
+        migrateExistingProjects()
+
         // Synchronize Caddyfiles after all projects are updated (only if requested)
         if syncCaddy {
             caddyConfig.reconcile()
+        }
+    }
+
+    /// Migrate existing projects that don't have framework detection
+    /// This handles projects created before SPA detection was implemented
+    private func migrateExistingProjects() {
+        let descriptor = FetchDescriptor<LocalProject>()
+        guard let projects = try? modelContext.fetch(descriptor) else {
+            return
+        }
+
+        var needsSave = false
+
+        for project in projects {
+            // Skip if already has a framework detected
+            if project.framework != nil {
+                continue
+            }
+
+            // Skip if project folder doesn't exist
+            guard FileManager.default.fileExists(atPath: project.path) else {
+                continue
+            }
+
+            // Detect framework (PHP or SPA)
+            if project.detectFramework() != nil {
+                needsSave = true
+            }
+        }
+
+        if needsSave {
+            try? modelContext.save()
         }
     }
 
@@ -125,10 +165,13 @@ final class DirectoryWatcherService {
             modelContext.delete(project)
         }
 
-        // Save deletions if any, then cleanup broken links in DeployedProjects
+        // Save deletions if any, then cleanup broken links and orphaned tunnel routes
         if !projectsToRemove.isEmpty {
             try? modelContext.save()
             linkingService?.cleanupBrokenLinks()
+            Task {
+                await tunnelService?.cleanupOrphanedRoutes()
+            }
         }
     }
 
@@ -165,9 +208,12 @@ final class DirectoryWatcherService {
             }
         }
 
-        // Cleanup broken links in DeployedProjects after projects are removed
+        // Cleanup broken links and orphaned tunnel routes after projects are removed
         if !removed.isEmpty {
             linkingService?.cleanupBrokenLinks()
+            Task {
+                await tunnelService?.cleanupOrphanedRoutes()
+            }
         }
 
         // Update snapshot
@@ -222,10 +268,8 @@ final class DirectoryWatcherService {
 
         project.watchedDirectory = directory
 
-        // Auto-detect framework
-        if let detected = try? project.detectFramework() {
-            project.framework = detected
-        }
+        // Auto-detect framework (PHP or SPA)
+        project.detectFramework()
 
         // Auto-detect Git repository
         if let repo = try? project.detectGitRepository() {
@@ -279,8 +323,7 @@ final class DirectoryWatcherService {
 
         // Re-detect framework if not detected initially
         if project.framework == nil {
-            if let detected = try? project.detectFramework() {
-                project.framework = detected
+            if project.detectFramework() != nil {
                 needsSave = true
             }
         }
@@ -335,8 +378,11 @@ final class DirectoryWatcherService {
         }
 
         try? modelContext.save()
-        // Cleanup broken links in DeployedProjects after projects are removed
+        // Cleanup broken links and orphaned tunnel routes after projects are removed
         linkingService?.cleanupBrokenLinks()
+        Task {
+            await tunnelService?.cleanupOrphanedRoutes()
+        }
     }
 
     /// Stop watching a specific WatchedDirectory (convenience method for UI)
