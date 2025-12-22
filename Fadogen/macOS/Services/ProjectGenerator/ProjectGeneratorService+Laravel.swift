@@ -465,6 +465,8 @@ extension ProjectGeneratorService {
         let dockerfilePath = projectPath.appendingPathComponent("Dockerfile")
         try dockerfile.write(to: dockerfilePath, atomically: true, encoding: .utf8)
 
+        try generateDockerignore(projectPath: projectPath)
+
         let composeBuilder = ComposeYAMLBuilder(config: config)
         let composeYAML = try await composeBuilder.generate()
         let composePath = projectPath.appendingPathComponent("compose.prod.yaml")

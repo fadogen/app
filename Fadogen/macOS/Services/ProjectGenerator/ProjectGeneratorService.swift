@@ -228,6 +228,19 @@ final class ProjectGeneratorService {
         }
     }
 
+    // MARK: - Docker Helpers
+
+    func generateDockerignore(projectPath: URL) throws {
+        let dockerignore = """
+            .env
+            .env.*
+            !.env.example
+            !.env.production.dist
+            """
+        let dockerignorePath = projectPath.appendingPathComponent(".dockerignore")
+        try dockerignore.write(to: dockerignorePath, atomically: true, encoding: .utf8)
+    }
+
     // MARK: - Git
 
     func initializeGit(projectPath: URL) async throws {
