@@ -148,6 +148,8 @@ extension ProjectGeneratorService {
         let dockerfilePath = projectPath.appendingPathComponent("Dockerfile")
         try dockerfile.write(to: dockerfilePath, atomically: true, encoding: .utf8)
 
+        try generateDockerignore(projectPath: projectPath)
+
         // Copy entrypoint script for container startup automations (migrations, cache warmup)
         let entrypointDir = projectPath.appendingPathComponent("docker/entrypoint.d")
         try FileManager.default.createDirectory(at: entrypointDir, withIntermediateDirectories: true)
