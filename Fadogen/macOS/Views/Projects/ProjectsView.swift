@@ -122,6 +122,7 @@ struct ProjectsView: View {
         .navigationDestination(for: Server.self) { server in
             ServerDetailView(server: server)
         }
+        .navigationTitle("Projects")
     }
 }
 
