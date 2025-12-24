@@ -373,7 +373,8 @@ extension ProjectGeneratorService {
             let envPath = projectPath.appendingPathComponent(".env")
             var envContent = try String(contentsOf: envPath, encoding: .utf8)
             let projectName = config.projectName.sanitizedHostname() ?? config.projectName
-            envContent = EnvFileEditor.configureScout(in: envContent, projectName: projectName)
+            let hasQueueWorker = config.queueService != .none
+            envContent = EnvFileEditor.configureScout(in: envContent, projectName: projectName, hasQueueWorker: hasQueueWorker)
             try envContent.write(to: envPath, atomically: true, encoding: .utf8)
         }
     }
@@ -652,11 +653,15 @@ extension ProjectGeneratorService {
 
         if config.scout {
             let prefix = (config.projectName.sanitizedHostname() ?? "app").replacingOccurrences(of: "-", with: "_")
+            // Enable queue-based indexing only if a queue worker is configured
+            let scoutQueue = config.queueService != .none ? "true" : "false"
             template += """
 
 
                 SCOUT_DRIVER=typesense
+                SCOUT_QUEUE=\(scoutQueue)
                 SCOUT_PREFIX=\(prefix)_
+
                 TYPESENSE_API_KEY=
                 TYPESENSE_HOST=typesense
                 TYPESENSE_PORT=8108
