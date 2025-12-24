@@ -110,6 +110,27 @@ struct ViteConfigEditorTests {
         });
         """
 
+    /// Config that already has SSR config
+    let configWithSSRConfig = """
+        import fadogen from '@fadogen/vite-plugin';
+        import laravel from 'laravel-vite-plugin';
+        import { defineConfig } from 'vite';
+
+        export default defineConfig({
+            plugins: [
+                fadogen(),
+                laravel({
+                    input: 'resources/js/app.tsx',
+                    ssr: 'resources/js/ssr.tsx',
+                    refresh: true,
+                }),
+            ],
+            ssr: {
+                noExternal: true,
+            },
+        });
+        """
+
     // MARK: - Import Tests
 
     @Test func addsFadogenImportAfterLastImport() {
@@ -234,5 +255,79 @@ struct ViteConfigEditorTests {
         let laravelIndent = laravelLine!.prefix(while: { $0.isWhitespace })
 
         #expect(fadogenIndent == laravelIndent)
+    }
+
+    // MARK: - SSR Config Tests
+
+    @Test func addsSSRConfigAfterPlugins() {
+        let result = ViteConfigEditor.addSSRConfig(in: reactStarterConfig)
+
+        #expect(result.contains("ssr: {"))
+        #expect(result.contains("noExternal: true,"))
+    }
+
+    @Test func addsSSRConfigForVueConfig() {
+        let result = ViteConfigEditor.addSSRConfig(in: vueStarterConfig)
+
+        #expect(result.contains("ssr: {"))
+        #expect(result.contains("noExternal: true,"))
+    }
+
+    @Test func addsSSRConfigForMinimalConfig() {
+        let result = ViteConfigEditor.addSSRConfig(in: minimalConfig)
+
+        #expect(result.contains("ssr: {"))
+        #expect(result.contains("noExternal: true,"))
+    }
+
+    @Test func addsSSRConfigWithNestedBrackets() {
+        // This tests that the bracket tracking works with nested arrays like input: [...]
+        let result = ViteConfigEditor.addSSRConfig(in: minimalConfig)
+
+        #expect(result.contains("ssr: {"))
+        #expect(result.contains("noExternal: true,"))
+        // Ensure the original nested array is preserved
+        #expect(result.contains("input: ['resources/css/app.css', 'resources/js/app.js']"))
+    }
+
+    @Test func doesNotDuplicateSSRConfigIfAlreadyPresent() {
+        let result = ViteConfigEditor.addSSRConfig(in: configWithSSRConfig)
+
+        // Should remain unchanged
+        #expect(result == configWithSSRConfig)
+    }
+
+    @Test func ssrConfigIdempotency() {
+        let firstPass = ViteConfigEditor.addSSRConfig(in: reactStarterConfig)
+        let secondPass = ViteConfigEditor.addSSRConfig(in: firstPass)
+
+        #expect(firstPass == secondPass)
+    }
+
+    @Test func ssrConfigPreservesExistingPlugins() {
+        let result = ViteConfigEditor.addSSRConfig(in: reactStarterConfig)
+
+        #expect(result.contains("laravel({"))
+        #expect(result.contains("react(),"))
+        #expect(result.contains("tailwindcss(),"))
+    }
+
+    @Test func ssrConfigPreservesEsbuildConfig() {
+        let result = ViteConfigEditor.addSSRConfig(in: wayfinderConfig)
+
+        #expect(result.contains("esbuild: {"))
+        #expect(result.contains("jsx: 'automatic',"))
+    }
+
+    @Test func ssrConfigDoesNotConfuseWithLaravelSSROption() {
+        // The laravel plugin has its own "ssr:" option, ensure we don't confuse it
+        // with the top-level ssr config
+        let result = ViteConfigEditor.addSSRConfig(in: reactStarterConfig)
+
+        // Should add ssr: { noExternal: true } even though laravel has ssr: 'resources/js/ssr.tsx'
+        #expect(result.contains("ssr: {"))
+        #expect(result.contains("noExternal: true,"))
+        // Original laravel ssr option should be preserved
+        #expect(result.contains("ssr: 'resources/js/ssr.tsx',"))
     }
 }

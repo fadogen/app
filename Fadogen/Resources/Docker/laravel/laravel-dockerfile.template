@@ -1,4 +1,7 @@
 ARG PHP_VERSION={{PHP_VERSION}}
+{{#IF IS_NPM}}
+ARG NODE_VERSION={{NODE_VERSION}}
+{{/IF}}
 
 ############################################
 # Base Stage
@@ -8,6 +11,10 @@ FROM serversideup/php:${PHP_VERSION}-frankenphp AS base
 USER root
 
 RUN install-php-extensions bcmath intl
+{{#IF IS_NPM}}
+
+FROM node:${NODE_VERSION}-bookworm-slim AS node-base
+{{/IF}}
 
 ############################################
 # Builder Stage
@@ -17,9 +24,9 @@ FROM base AS builder
 COPY --from=oven/bun:{{BUN_VERSION}}-debian /usr/local/bin/bun /usr/local/bin/bun
 {{/IF}}
 {{#IF IS_NPM}}
-COPY --from=node:{{NODE_VERSION}}-bookworm-slim /usr/local/bin/node /usr/local/bin/node
-COPY --from=node:{{NODE_VERSION}}-bookworm-slim /usr/local/lib/node_modules /usr/local/lib/node_modules
-COPY --from=node:{{NODE_VERSION}}-bookworm-slim /usr/local/include/node /usr/local/include/node
+COPY --from=node-base /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-base /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=node-base /usr/local/include/node /usr/local/include/node
 
 RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
     ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
@@ -81,13 +88,16 @@ USER www-data
 ############################################
 # SSR Image
 ############################################
+{{#IF IS_BUN}}
 FROM {{SSR_IMAGE}} AS ssr
+{{/IF}}
+{{#IF IS_NPM}}
+FROM node-base AS ssr
+{{/IF}}
 
 WORKDIR /app
 
 COPY --from=builder /var/www/html/bootstrap/ssr ./bootstrap/ssr
-
-COPY --from=builder /var/www/html/node_modules ./node_modules
 
 EXPOSE 13714
 
