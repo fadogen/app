@@ -17,4 +17,9 @@ nonisolated enum BinaryValidationService {
         let path = FadogenPaths.reverbBinaryPath.appendingPathComponent("artisan")
         return FileManager.default.fileExists(atPath: path.path)
     }
+
+    static func validateTypesenseBinaries() -> Bool {
+        let path = FadogenPaths.typesenseBinaryPath.appendingPathComponent("typesense-server")
+        return FileManager.default.isExecutableFile(atPath: path.path)
+    }
 }

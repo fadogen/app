@@ -49,6 +49,7 @@ struct FadogenApp: App {
                 ComposerVersion.self,
                 ServiceVersion.self,
                 ReverbVersion.self,
+                TypesenseVersion.self,
                 MailpitConfig.self,
                 LocalTunnelConfig.self,
                 LocalTunnelRoute.self
@@ -91,6 +92,7 @@ struct FadogenApp: App {
                 ComposerVersion.self,
                 ServiceVersion.self,
                 ReverbVersion.self,
+                TypesenseVersion.self,
                 MailpitConfig.self,
                 LocalTunnelConfig.self,
                 LocalTunnelRoute.self,

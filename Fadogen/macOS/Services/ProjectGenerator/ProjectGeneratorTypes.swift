@@ -241,6 +241,7 @@ struct ProjectConfiguration {
     var taskScheduler: Bool = false
     var reverb: Bool = false
     var octane: Bool = false
+    var scout: Bool = false
 
     // Symfony-specific
     var symfonyProjectType: SymfonyProjectType = .webapp
@@ -255,6 +256,7 @@ struct ProjectConfiguration {
     var mariadbVersion: String?
     var valkeyVersion: String?
     var redisVersion: String?
+    var typesenseVersion: String?
 
     // Runtime Versions for Dockerfile (populated from installed/bundled versions)
     var nodeVersion: String?  // e.g., "24" for node:24-bookworm-slim
@@ -297,6 +299,7 @@ struct ProjectConfiguration {
             config.taskScheduler = false
             config.reverb = false
             config.octane = false
+            config.scout = false
             return config
         }
 
@@ -347,6 +350,8 @@ enum PrerequisiteError: LocalizedError {
     case serviceStartFailed(ServiceType, Error)
     case reverbInstallationFailed(Error)
     case reverbStartFailed(Error)
+    case typesenseInstallationFailed(Error)
+    case typesenseStartFailed(Error)
     case bunInstallationFailed(Error)
     case metadataNotAvailable
 
@@ -364,6 +369,10 @@ enum PrerequisiteError: LocalizedError {
             return "Failed to install Reverb: \(error.localizedDescription)"
         case .reverbStartFailed(let error):
             return "Failed to start Reverb: \(error.localizedDescription)"
+        case .typesenseInstallationFailed(let error):
+            return "Failed to install Typesense: \(error.localizedDescription)"
+        case .typesenseStartFailed(let error):
+            return "Failed to start Typesense: \(error.localizedDescription)"
         case .bunInstallationFailed(let error):
             return "Failed to install Bun: \(error.localizedDescription)"
         case .metadataNotAvailable:

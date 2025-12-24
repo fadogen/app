@@ -106,6 +106,18 @@ nonisolated enum FadogenPaths {
         sharedBinariesDirectory.appendingPathComponent("reverb")
     }
 
+    /// Typesense binary directory: /Users/Shared/Fadogen/typesense
+    /// Contains the Typesense search server binary
+    static var typesenseBinaryPath: URL {
+        sharedBinariesDirectory.appendingPathComponent("typesense")
+    }
+
+    /// Typesense data directory: ~/Library/Application Support/Fadogen/data/typesense
+    /// Used for Typesense database files
+    static var typesenseDataDirectory: URL {
+        dataDirectory.appendingPathComponent("typesense")
+    }
+
     /// Node.js versions directory: /Users/Shared/Fadogen/node
     /// Contains all installed Node.js versions
     static var nodeVersionsDirectory: URL {

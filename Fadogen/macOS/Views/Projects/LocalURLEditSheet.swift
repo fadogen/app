@@ -20,10 +20,10 @@ struct LocalURLEditSheet: View {
     }
 
     private var previewURL: String {
-        guard let sanitized = hostname.sanitizedHostname(), !sanitized.isEmpty else {
+        guard let effectiveHostname = hostname.sanitizedHostnameAvoidingConflicts(), !effectiveHostname.isEmpty else {
             return project.localURL
         }
-        return "https://\(sanitized).localhost"
+        return "https://\(effectiveHostname).localhost"
     }
 
     var body: some View {
@@ -92,12 +92,12 @@ struct LocalURLEditSheet: View {
     }
 
     private func validateHostname(_ value: String) {
-        guard let sanitized = value.sanitizedHostname(), !sanitized.isEmpty else {
+        guard let effectiveHostname = value.sanitizedHostnameAvoidingConflicts(), !effectiveHostname.isEmpty else {
             suggestion = nil
             return
         }
 
-        let targetURL = "https://\(sanitized).localhost"
+        let targetURL = "https://\(effectiveHostname).localhost"
 
         // Same as current = OK
         if targetURL == project.localURL {
@@ -107,16 +107,16 @@ struct LocalURLEditSheet: View {
 
         // Check if taken
         if modelContext.isLocalURLTaken(targetURL, excludingProjectID: project.id) {
-            suggestion = modelContext.findUniqueHostname(sanitized, excludingProjectID: project.id)
+            suggestion = modelContext.findUniqueHostname(effectiveHostname, excludingProjectID: project.id)
         } else {
             suggestion = nil
         }
     }
 
     private func save() {
-        guard let sanitized = hostname.sanitizedHostname(), !sanitized.isEmpty else { return }
+        guard let effectiveHostname = hostname.sanitizedHostnameAvoidingConflicts(), !effectiveHostname.isEmpty else { return }
 
-        let newURL = "https://\(sanitized).localhost"
+        let newURL = "https://\(effectiveHostname).localhost"
         guard !modelContext.isLocalURLTaken(newURL, excludingProjectID: project.id) else { return }
 
         project.localURL = newURL

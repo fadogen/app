@@ -276,6 +276,9 @@ struct NewProjectView: View {
 
             // Octane
             Toggle("Octane", isOn: $config.octane)
+
+            // Scout (Typesense search)
+            Toggle("Scout", isOn: $config.scout)
         }
     }
 

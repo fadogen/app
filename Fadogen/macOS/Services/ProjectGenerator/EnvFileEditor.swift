@@ -111,4 +111,35 @@ enum EnvFileEditor {
 
         return result
     }
+
+    /// Configure Scout with Typesense for development
+    /// - Parameters:
+    ///   - content: The .env file content
+    ///   - projectName: The sanitized project name for SCOUT_PREFIX
+    /// - Returns: Modified .env content with Scout/Typesense configuration
+    static func configureScout(in content: String, projectName: String) -> String {
+        // Convert hyphens to underscores for SCOUT_PREFIX (SQL-safe identifier)
+        let prefix = projectName.replacingOccurrences(of: "-", with: "_")
+
+        // Scout variables don't exist in Laravel's default .env, so we append them
+        let scoutBlock = """
+
+            SCOUT_DRIVER=typesense
+            SCOUT_PREFIX=\(prefix)_
+
+            TYPESENSE_API_KEY=fadogen-typesense-key
+            TYPESENSE_HOST="typesense.localhost"
+            TYPESENSE_PORT=443
+            TYPESENSE_PROTOCOL=https
+            """
+
+        // Ensure content ends with newline before appending
+        var result = content
+        if !result.hasSuffix("\n") {
+            result += "\n"
+        }
+        result += scoutBlock
+
+        return result
+    }
 }

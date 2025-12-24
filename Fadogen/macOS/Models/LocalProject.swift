@@ -126,6 +126,17 @@ final class LocalProject {
             .replacingOccurrences(of: ".localhost", with: "")
     }
 
+    /// Hostname with reserved service names resolved (e.g., "reverb" → "reverb-project")
+    /// Use this for Caddy config generation and URL display
+    var effectiveHostname: String {
+        sanitizedName.sanitizedHostnameAvoidingConflicts() ?? sanitizedName
+    }
+
+    /// The actual URL served by Caddy (handles reserved hostname conflicts)
+    var effectiveLocalURL: String {
+        "https://\(effectiveHostname).localhost"
+    }
+
     var githubIdentifier: String? {
         gitRemoteURL?.githubIdentifier()
     }
@@ -162,15 +173,15 @@ final class LocalProject {
 
     /// Returns nil if name cannot be sanitized to valid RFC 1123 hostname
     init?(name: String, path: String, phpVersion: PHPVersion? = nil, nodeVersion: NodeVersion? = nil) {
-        // Sanitize name to valid RFC 1123 hostname
-        guard let sanitizedName = name.sanitizedHostname() else {
+        // Sanitize name to valid RFC 1123 hostname, avoiding reserved service names
+        guard let hostname = name.sanitizedHostnameAvoidingConflicts() else {
             return nil
         }
 
         self.id = UUID()
         self.name = name
         self.path = path
-        self.localURL = "https://\(sanitizedName).localhost"
+        self.localURL = "https://\(hostname).localhost"
         self.phpVersion = phpVersion
         self.nodeVersion = nodeVersion
     }

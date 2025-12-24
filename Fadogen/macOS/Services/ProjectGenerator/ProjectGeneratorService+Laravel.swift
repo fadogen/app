@@ -357,6 +357,25 @@ extension ProjectGeneratorService {
                 workingDirectory: projectPath
             )
         }
+
+        if config.scout {
+            try await runCommand(
+                phpBinary,
+                arguments: [composerPhar.path, "require", "laravel/scout"],
+                workingDirectory: projectPath
+            )
+            try await runCommand(
+                phpBinary,
+                arguments: [artisanPath, "vendor:publish", "--provider=Laravel\\Scout\\ScoutServiceProvider", "--no-interaction"],
+                workingDirectory: projectPath
+            )
+
+            let envPath = projectPath.appendingPathComponent(".env")
+            var envContent = try String(contentsOf: envPath, encoding: .utf8)
+            let projectName = config.projectName.sanitizedHostname() ?? config.projectName
+            envContent = EnvFileEditor.configureScout(in: envContent, projectName: projectName)
+            try envContent.write(to: envPath, atomically: true, encoding: .utf8)
+        }
     }
 
     func installEchoPackages(config: ProjectConfiguration, projectPath: URL) async throws {
@@ -628,6 +647,20 @@ extension ProjectGeneratorService {
                 VITE_REVERB_HOST="${REVERB_HOST}"
                 VITE_REVERB_PORT="${REVERB_PORT}"
                 VITE_REVERB_SCHEME="${REVERB_SCHEME}"
+                """
+        }
+
+        if config.scout {
+            let prefix = (config.projectName.sanitizedHostname() ?? "app").replacingOccurrences(of: "-", with: "_")
+            template += """
+
+
+                SCOUT_DRIVER=typesense
+                SCOUT_PREFIX=\(prefix)_
+                TYPESENSE_API_KEY=
+                TYPESENSE_HOST=typesense
+                TYPESENSE_PORT=8108
+                TYPESENSE_PROTOCOL=http
                 """
         }
 

@@ -45,6 +45,12 @@ enum SecretGenerator {
         return String((0..<32).compactMap { _ in chars.randomElement() })
     }
 
+    // MARK: - Typesense
+
+    static func generateTypesenseAPIKey() -> String {
+        String((0..<32).compactMap { _ in alphanumeric.randomElement() })
+    }
+
     // MARK: - Database
 
     /// Max 63 chars for PostgreSQL

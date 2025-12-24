@@ -81,7 +81,12 @@ struct ComposeYAMLBuilder {
             }
         }
 
-        // 5. SSR service
+        // 5. Typesense (Scout search)
+        if config.scout {
+            files.append(templatesDirectory.appendingPathComponent("shared-typesense.yaml"))
+        }
+
+        // 6. SSR service
         if config.ssr {
             if config.jsPackageManager == .bun {
                 files.append(templatesDirectory.appendingPathComponent("laravel-ssr-bun.yaml"))
@@ -90,14 +95,14 @@ struct ComposeYAMLBuilder {
             }
         }
 
-        // 6. Key-value store (Valkey or Redis)
+        // 7. Key-value store (Valkey or Redis)
         if needsValkey {
             files.append(templatesDirectory.appendingPathComponent("shared-valkey.yaml"))
         } else if needsRedis {
             files.append(templatesDirectory.appendingPathComponent("shared-redis.yaml"))
         }
 
-        // 7. Database service
+        // 8. Database service
         switch config.databaseType {
         case .mariadb:
             files.append(templatesDirectory.appendingPathComponent("shared-mariadb.yaml"))
@@ -109,10 +114,10 @@ struct ComposeYAMLBuilder {
             break // No service needed, volume already added via laravel-sqlite.yaml
         }
 
-        // 8. Backup service
+        // 9. Backup service
         files.append(templatesDirectory.appendingPathComponent("shared-backup.yaml"))
 
-        // 9. Base infrastructure (last so volumes/networks/secrets appear at end)
+        // 10. Base infrastructure (last so volumes/networks/secrets appear at end)
         files.append(templatesDirectory.appendingPathComponent("laravel-base.yaml"))
 
         return files
@@ -244,6 +249,13 @@ struct ComposeYAMLBuilder {
             result = result.replacingOccurrences(of: "{{REDIS_VERSION}}", with: version)
         } else {
             result = result.replacingOccurrences(of: "{{REDIS_VERSION}}", with: "8")
+        }
+
+        // Typesense version
+        if let version = config.typesenseVersion {
+            result = result.replacingOccurrences(of: "{{TYPESENSE_VERSION}}", with: version)
+        } else {
+            result = result.replacingOccurrences(of: "{{TYPESENSE_VERSION}}", with: "29.0")
         }
 
         return result

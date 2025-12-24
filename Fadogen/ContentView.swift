@@ -132,6 +132,8 @@ struct DetailView: View {
                     CachesView()
                 case .reverb:
                     ReverbView()
+                case .typesense:
+                    TypesenseView()
                 case .mail:
                     MailpitView()
                 case .caddy:

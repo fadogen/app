@@ -65,7 +65,7 @@ final class CaddyConfigService {
 
         // 3. Get existing Caddyfile names and remove orphaned ones
         let existingFiles = (try? fileManager.contentsOfDirectory(atPath: projectsDir.path))?.filter { $0.hasSuffix(".caddy") } ?? []
-        let expectedFiles = Set(localProjects.map { "\($0.sanitizedName).caddy" })
+        let expectedFiles = Set(localProjects.map { "\($0.effectiveHostname).caddy" })
         let orphaned = Set(existingFiles).subtracting(expectedFiles)
 
         for filename in orphaned {
@@ -95,7 +95,7 @@ final class CaddyConfigService {
     ///   - projectsDir: The directory containing project Caddyfiles
     /// - Returns: True if the file was updated, false otherwise
     private func updateProjectCaddyfile(_ project: LocalProject, in projectsDir: URL) -> Bool {
-        let filename = "\(project.sanitizedName).caddy"
+        let filename = "\(project.effectiveHostname).caddy"
         let filePath = projectsDir.appendingPathComponent(filename)
         let expectedContent = caddyfileContent(for: project)
 
@@ -131,6 +131,9 @@ final class CaddyConfigService {
         // Check if Reverb is installed and get port
         let reverbConfig = getReverbConfiguration()
 
+        // Check if Typesense is installed and get port
+        let typesenseConfig = getTypesenseConfiguration()
+
         // Check if Mailpit is configured
         let mailpitConfig = getMailpitConfiguration()
 
@@ -147,6 +150,23 @@ http://reverb.localhost {
 }
 
 https://reverb.localhost {
+    tls internal
+    reverse_proxy http://127.0.0.1:\(port)
+}
+
+
+"""
+        }
+
+        // Add Typesense proxy configuration if installed
+        if let port = typesenseConfig {
+            content += """
+# Typesense search server proxy
+http://typesense.localhost {
+    redir https://typesense.localhost{uri} permanent
+}
+
+https://typesense.localhost {
     tls internal
     reverse_proxy http://127.0.0.1:\(port)
 }
@@ -220,13 +240,27 @@ import projects/*
         return try? modelContext.fetch(descriptor).first
     }
 
+    /// Get Typesense configuration if installed
+    /// - Returns: Port number if Typesense is installed, nil otherwise
+    private func getTypesenseConfiguration() -> Int? {
+        let descriptor = FetchDescriptor<TypesenseVersion>(
+            predicate: #Predicate { $0.uniqueIdentifier == "typesense" }
+        )
+
+        guard let typesense = try? modelContext.fetch(descriptor).first else {
+            return nil
+        }
+
+        return typesense.port
+    }
+
     /// Generate Caddyfile content for a project
     /// - Parameter project: The project to generate content for
     /// - Returns: Caddyfile content as string
     private func caddyfileContent(for project: LocalProject) -> String {
         guard FileManager.default.fileExists(atPath: project.path) else { return "" }
 
-        let localHostname = "\(project.sanitizedName).localhost"
+        let localHostname = "\(project.effectiveHostname).localhost"
         let publicHostnames = getPublicHostnames(for: project)
         let hasTunnel = !publicHostnames.isEmpty
         let content = siteContent(for: project, hasTunnel: hasTunnel)
