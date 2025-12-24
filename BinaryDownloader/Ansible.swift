@@ -2,10 +2,28 @@ import Foundation
 import Subprocess
 import System
 
+/// Python version series to download (e.g., "3.14" will match 3.14.0, 3.14.1, etc.)
+private let pythonMajorMinor = "3.14"
+
 extension BinaryDownloader {
     static func downloadAnsible() async throws {
-        // Python 3.14.0 from python-build-standalone
-        let pythonURL = try url(from: "https://github.com/astral-sh/python-build-standalone/releases/download/20251028/cpython-3.14.0+20251028-aarch64-apple-darwin-install_only_stripped.tar.gz")
+        // Step 1: Fetch latest release from python-build-standalone
+        let apiURL = try url(from: "https://api.github.com/repos/astral-sh/python-build-standalone/releases/latest")
+        let apiData = try await fetchGitHubAPI(url: apiURL)
+        let release = try JSONDecoder().decode(PythonBuildStandaloneRelease.self, from: apiData)
+
+        // Step 2: Find the asset matching our Python version and architecture
+        let assetPrefix = "cpython-\(pythonMajorMinor)."
+        let assetSuffix = "-aarch64-apple-darwin-install_only_stripped.tar.gz"
+
+        guard let asset = release.assets.first(where: {
+            $0.name.hasPrefix(assetPrefix) && $0.name.hasSuffix(assetSuffix)
+        }) else {
+            throw DownloadError.noMacOSAsset
+        }
+
+        // Step 3: Download Python from python-build-standalone (no checksum - GitHub releases are trusted)
+        let pythonURL = try url(from: asset.browserDownloadUrl)
         let (tempURL, _) = try await session.download(from: pythonURL)
 
         // Extract to Resources/python/
@@ -73,5 +91,27 @@ extension BinaryDownloader {
             output: .discarded,
             error: .discarded
         )
+    }
+}
+
+// MARK: - Models
+
+private struct PythonBuildStandaloneRelease: Codable {
+    let tagName: String
+    let assets: [PythonAsset]
+
+    enum CodingKeys: String, CodingKey {
+        case tagName = "tag_name"
+        case assets
+    }
+}
+
+private struct PythonAsset: Codable {
+    let name: String
+    let browserDownloadUrl: String
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case browserDownloadUrl = "browser_download_url"
     }
 }

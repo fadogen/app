@@ -9,6 +9,7 @@ enum DownloadError: Error, LocalizedError {
     case invalidMetadata(filename: String)
     case noPHPLatestVersion
     case noNodeLTSVersion
+    case noMacOSAsset
     case invalidURL(String)
 
     var errorDescription: String? {
@@ -29,6 +30,8 @@ enum DownloadError: Error, LocalizedError {
             return "No latest PHP version found in metadata"
         case .noNodeLTSVersion:
             return "No active LTS Node.js version found"
+        case .noMacOSAsset:
+            return "No macOS arm64 asset found in release"
         case .invalidURL(let urlString):
             return "Invalid URL: \(urlString)"
         }
