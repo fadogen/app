@@ -1,0 +1,28 @@
+---
+services:
+  typesense:
+    image: 'typesense/typesense:{{TYPESENSE_VERSION}}'
+    command: ["--data-dir=/data", "--api-key=${TYPESENSE_API_KEY}", "--enable-cors"]
+    environment:
+      TYPESENSE_API_KEY: "${TYPESENSE_API_KEY}"
+    volumes:
+      - 'stack-typesense:/data'
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: "50m"
+        max-file: "6"
+    networks:
+      - internal
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role==manager
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: start-first
+
+volumes:
+  stack-typesense:

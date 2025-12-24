@@ -1,9 +1,9 @@
 import SwiftUI
 import SwiftData
 
-/// Unified sheet for installing or editing Reverb configuration
-struct ReverbSheet: View {
-    let existingVersion: ReverbVersion?
+/// Unified sheet for installing or editing Typesense configuration
+struct TypesenseSheet: View {
+    let existingVersion: TypesenseVersion?
 
     @Environment(\.dismiss) private var dismiss
     @Environment(AppServices.self) private var appServices
@@ -26,8 +26,8 @@ struct ReverbSheet: View {
     }
 
     /// Initialize for editing
-    init(editing reverbVersion: ReverbVersion) {
-        self.existingVersion = reverbVersion
+    init(editing typesenseVersion: TypesenseVersion) {
+        self.existingVersion = typesenseVersion
     }
 
     var body: some View {
@@ -40,8 +40,8 @@ struct ReverbSheet: View {
                 configurationSection
             }
             .formStyle(.grouped)
-            .frame(width: 450)
-            .navigationTitle(isEditing ? "Edit Reverb" : "Install Reverb")
+            .scrollDisabled(true)
+            .navigationTitle(isEditing ? "Edit Typesense" : "Install Typesense")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -75,6 +75,7 @@ struct ReverbSheet: View {
                 initializeState()
             }
         }
+        .frame(width: 400)
     }
 
     // MARK: - Sections
@@ -82,7 +83,7 @@ struct ReverbSheet: View {
     @ViewBuilder
     private var versionSection: some View {
         Section {
-            if let metadata = appServices.reverb.availableMetadata {
+            if let metadata = appServices.typesense.availableMetadata {
                 LabeledContent("Version", value: metadata.latest)
             } else {
                 HStack {
@@ -137,7 +138,7 @@ struct ReverbSheet: View {
     private var canSubmit: Bool {
         guard PortValidator.isValid(port) else { return false }
         if portConflict != nil { return false }
-        if !isEditing && appServices.reverb.availableMetadata == nil { return false }
+        if !isEditing && appServices.typesense.availableMetadata == nil { return false }
         return true
     }
 
@@ -146,7 +147,7 @@ struct ReverbSheet: View {
             port = "\(version.port)"
             autoStart = version.autoStart
         } else {
-            port = "8080"
+            port = "8108"
             autoStart = false
         }
     }
@@ -158,7 +159,7 @@ struct ReverbSheet: View {
             return
         }
 
-        portConflict = try? appServices.reverb.detectPortConflict(port: portNumber)
+        portConflict = try? appServices.typesense.detectPortConflict(port: portNumber)
     }
 
     private func submit() {
@@ -176,7 +177,7 @@ struct ReverbSheet: View {
 
         Task {
             do {
-                try await appServices.reverb.install(
+                try await appServices.typesense.install(
                     port: portNumber,
                     autoStart: autoStart
                 )
@@ -195,7 +196,7 @@ struct ReverbSheet: View {
     }
 
     private func saveChanges() {
-        guard let reverbVersion = existingVersion else { return }
+        guard let typesenseVersion = existingVersion else { return }
 
         let portNumber: Int
         do {
@@ -206,8 +207,8 @@ struct ReverbSheet: View {
             return
         }
 
-        let portChanged = reverbVersion.port != portNumber
-        reverbVersion.autoStart = autoStart
+        let portChanged = typesenseVersion.port != portNumber
+        typesenseVersion.autoStart = autoStart
 
         do {
             try modelContext.save()
@@ -216,7 +217,7 @@ struct ReverbSheet: View {
                 isProcessing = true
                 Task {
                     do {
-                        try await appServices.reverb.updatePort(newPort: portNumber)
+                        try await appServices.typesense.updatePort(newPort: portNumber)
                         dismiss()
                     } catch {
                         errorMessage = String(localized: "Failed to update port: \(error.localizedDescription)")

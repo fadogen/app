@@ -19,6 +19,8 @@ final class ProjectGeneratorService {
     var serviceProcesses: ServiceProcessManager?
     var reverbManager: ReverbManager?
     var reverbProcess: ReverbProcessManager?
+    var typesenseManager: TypesenseManager?
+    var typesenseProcess: TypesenseProcessManager?
     var bunManager: BunManager?
     var nodeManager: NodeManager?
     var modelContext: ModelContext?
@@ -269,11 +271,13 @@ final class ProjectGeneratorService {
         let needsDatabase = config.databaseType.toServiceType() != nil
         let needsCache = requiredCacheServiceType(from: config) != nil
         let needsReverb = config.reverb
+        let needsTypesense = config.scout
         let needsBun = config.jsPackageManager == .bun
 
         if needsDatabase { activeStepCount += 1 }
         if needsCache { activeStepCount += 1 }
         if needsReverb { activeStepCount += 1 }
+        if needsTypesense { activeStepCount += 1 }
         if needsBun { activeStepCount += 1 }
 
         // Prerequisites use 0-15% of total progress, divided evenly among active steps
@@ -316,7 +320,16 @@ final class ProjectGeneratorService {
             progress = stepProgress * Double(completedSteps)
         }
 
-        // 5. Ensure Bun is installed (if selected as JS package manager)
+        // 5. Ensure Typesense service (if Scout toggle enabled)
+        if config.scout {
+            try Task.checkCancellation()
+            currentStep = "Checking Typesense..."
+            try await ensureTypesenseService(config: &config)
+            completedSteps += 1
+            progress = stepProgress * Double(completedSteps)
+        }
+
+        // 6. Ensure Bun is installed (if selected as JS package manager)
         if config.jsPackageManager == .bun {
             try Task.checkCancellation()
             currentStep = "Checking Bun..."
@@ -584,6 +597,50 @@ final class ProjectGeneratorService {
         }
     }
 
+    private func ensureTypesenseService(config: inout ProjectConfiguration) async throws {
+        guard let typesenseManager, let typesenseProcess else { return }
+
+        // Check if already installed
+        if let existingTypesense = try? findInstalledTypesense() {
+            // Typesense installed - check if running
+            if !typesenseProcess.isRunning {
+                currentStep = "Starting Typesense..."
+                do {
+                    try await typesenseProcess.start(port: existingTypesense.port)
+                } catch {
+                    throw PrerequisiteError.typesenseStartFailed(error)
+                }
+            }
+            // Store version for Docker compose
+            config.typesenseVersion = existingTypesense.version
+            return
+        }
+
+        // Not installed - need to install
+        // Ensure metadata is loaded
+        if typesenseManager.availableMetadata == nil {
+            await typesenseManager.refresh()
+        }
+
+        guard let metadata = typesenseManager.availableMetadata else {
+            throw PrerequisiteError.metadataNotAvailable
+        }
+
+        // Get available port (default 8108)
+        let port = suggestTypesensePort()
+
+        currentStep = "Installing Typesense..."
+
+        do {
+            // Install with autoStart: true
+            try await typesenseManager.install(port: port, autoStart: true)
+            // Store version for Docker compose
+            config.typesenseVersion = metadata.latest
+        } catch {
+            throw PrerequisiteError.typesenseInstallationFailed(error)
+        }
+    }
+
     private func findInstalledService(_ serviceType: ServiceType) throws -> ServiceVersion? {
         guard let modelContext else { return nil }
 
@@ -600,6 +657,17 @@ final class ProjectGeneratorService {
         let reverbId = "reverb"
         let descriptor = FetchDescriptor<ReverbVersion>(
             predicate: #Predicate { $0.uniqueIdentifier == reverbId }
+        )
+
+        return try modelContext.fetch(descriptor).first
+    }
+
+    private func findInstalledTypesense() throws -> TypesenseVersion? {
+        guard let modelContext else { return nil }
+
+        let typesenseId = "typesense"
+        let descriptor = FetchDescriptor<TypesenseVersion>(
+            predicate: #Predicate { $0.uniqueIdentifier == typesenseId }
         )
 
         return try modelContext.fetch(descriptor).first
@@ -625,6 +693,10 @@ final class ProjectGeneratorService {
         }
 
         return defaultPort
+    }
+
+    private func suggestTypesensePort() -> Int {
+        8108  // Default Typesense port
     }
 
     struct GenerationStep {

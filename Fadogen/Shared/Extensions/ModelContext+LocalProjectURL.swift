@@ -22,20 +22,22 @@ extension ModelContext {
     }
 
     /// Finds a unique hostname by appending suffixes (-2, -3, etc.) if needed
+    /// Handles reserved hostnames (reverb, typesense, mail) by applying conflict avoidance
     /// - Parameters:
     ///   - baseName: The base name to sanitize and use
     ///   - excludingProjectID: Optional project ID to exclude from uniqueness check
-    /// - Returns: A unique hostname, or nil if baseName cannot be sanitized
+    /// - Returns: A unique hostname (with conflicts resolved), or nil if baseName cannot be sanitized
     func findUniqueHostname(_ baseName: String, excludingProjectID: UUID? = nil) -> String? {
-        guard let sanitized = baseName.sanitizedHostname() else {
+        // Use sanitizedHostnameAvoidingConflicts to handle reserved hostnames
+        guard let effectiveHostname = baseName.sanitizedHostnameAvoidingConflicts() else {
             return nil
         }
 
-        var hostname = sanitized
+        var hostname = effectiveHostname
         var suffix = 2
 
         while isLocalURLTaken("https://\(hostname).localhost", excludingProjectID: excludingProjectID) {
-            hostname = "\(sanitized)-\(suffix)"
+            hostname = "\(effectiveHostname)-\(suffix)"
             suffix += 1
 
             // Safety limit

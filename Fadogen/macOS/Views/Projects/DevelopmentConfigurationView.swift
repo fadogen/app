@@ -136,7 +136,7 @@ struct DevelopmentConfigurationView: View {
     private var localURLRow: some View {
         LabeledContent("Local URL") {
             HStack(spacing: 8) {
-                Button(project.localURL) {
+                Button(project.effectiveLocalURL) {
                     openInBrowser()
                 }
                 .buttonStyle(.link)
@@ -162,7 +162,7 @@ struct DevelopmentConfigurationView: View {
     }
 
     private func openInBrowser() {
-        if let url = URL(string: project.localURL) {
+        if let url = URL(string: project.effectiveLocalURL) {
             NSWorkspace.shared.open(url)
         }
     }

@@ -439,6 +439,12 @@ final class EnvFileService {
             updates["REVERB_APP_SECRET"] = SecretGenerator.generateReverbAppSecret()
         }
 
+        // Typesense API key (only if key exists in file)
+        // Treat dev placeholder as needing generation
+        if needsGeneration(key: "TYPESENSE_API_KEY", in: content, emptyValues: ["", "fadogen-typesense-key"]) {
+            updates["TYPESENSE_API_KEY"] = SecretGenerator.generateTypesenseAPIKey()
+        }
+
         // Apply updates if any
         if !updates.isEmpty {
             try updateEnvFile(at: url, updates: updates)

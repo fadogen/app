@@ -19,6 +19,8 @@ final class AppServices {
     let serviceProcesses: ServiceProcessManager
     let reverb: ReverbManager
     let reverbProcess: ReverbProcessManager
+    let typesense: TypesenseManager
+    let typesenseProcess: TypesenseProcessManager
     let mailpit: MailpitService
     let cloudflaredTunnel: CloudflaredTunnelService
     let quickTunnel: QuickTunnelService
@@ -41,6 +43,8 @@ final class AppServices {
         self.services = ServicesManager(modelContext: modelContext, serviceProcesses: serviceProcesses)
         self.reverbProcess = ReverbProcessManager(modelContext: modelContext)
         self.reverb = ReverbManager(modelContext: modelContext, reverbProcess: reverbProcess, caddyConfig: caddyConfig)
+        self.typesenseProcess = TypesenseProcessManager(modelContext: modelContext)
+        self.typesense = TypesenseManager(modelContext: modelContext, typesenseProcess: typesenseProcess, caddyConfig: caddyConfig)
         self.mailpit = MailpitService(modelContext: modelContext)
         self.cloudflaredTunnel = CloudflaredTunnelService(modelContext: modelContext, caddyConfig: caddyConfig)
         self.quickTunnel = QuickTunnelService(modelContext: modelContext)
@@ -52,6 +56,8 @@ final class AppServices {
         projectGenerator.serviceProcesses = serviceProcesses
         projectGenerator.reverbManager = reverb
         projectGenerator.reverbProcess = reverbProcess
+        projectGenerator.typesenseManager = typesense
+        projectGenerator.typesenseProcess = typesenseProcess
         projectGenerator.bunManager = bun
         projectGenerator.nodeManager = node
         projectGenerator.modelContext = modelContext
@@ -81,6 +87,7 @@ final class AppServices {
         // PHP must complete first (Composer depends on PHP binary)
         async let servicesInit: Void = services.initialize()    // Load service metadata (independent)
         async let reverbInit: Void = reverb.initialize()        // Load Reverb config (independent)
+        async let typesenseInit: Void = typesense.initialize()  // Load Typesense config (independent)
         async let watcherInit: Void = directoryWatcher.reconcile(syncCaddy: false)  // Scan sites (independent)
 
         // PHP initialization (creates bin/ directory and installs PHP)
@@ -106,6 +113,7 @@ final class AppServices {
         // Wait for other independent initializations
         await servicesInit
         await reverbInit
+        await typesenseInit
         await watcherInit
         await nodeInit
         await bunInit
@@ -122,6 +130,7 @@ final class AppServices {
         phpExtensionWatcher.setPHPFPM(phpFPM)
         serviceProcesses.processCleanup = processCleanup
         reverbProcess.processCleanup = processCleanup
+        typesenseProcess.processCleanup = processCleanup
         mailpit.processCleanup = processCleanup
         mailpit.caddyConfig = caddyConfig
         cloudflaredTunnel.processCleanup = processCleanup
@@ -180,6 +189,9 @@ final class AppServices {
         // Start Reverb if autoStart enabled
         await reverbProcess.startAutoStartService()
 
+        // Start Typesense if autoStart enabled
+        await typesenseProcess.startAutoStartService()
+
         // Start Mailpit if autoStart enabled
         await mailpit.startAutoStartService()
 
@@ -207,6 +219,9 @@ final class AppServices {
 
         // Stop Reverb if running
         await reverbProcess.stop()
+
+        // Stop Typesense if running
+        await typesenseProcess.stop()
 
         // Stop Mailpit if running
         await mailpit.stop()

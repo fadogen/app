@@ -23,6 +23,7 @@ enum NavigationSection: String, CaseIterable, Identifiable {
     case databases = "Databases"
     case caches = "Caches"
     case reverb = "Reverb"
+    case typesense = "Typesense"
     case mail = "Mail"
     case caddy = "Caddy"
     case settings = "Settings"
@@ -39,6 +40,7 @@ enum NavigationSection: String, CaseIterable, Identifiable {
         case .databases: String(localized: "Databases")
         case .caches: String(localized: "Caches")
         case .reverb: String(localized: "Reverb")
+        case .typesense: String(localized: "Typesense")
         case .mail: String(localized: "Mail")
         case .caddy: String(localized: "Caddy")
         case .settings: String(localized: "Settings")
@@ -49,7 +51,7 @@ enum NavigationSection: String, CaseIterable, Identifiable {
         switch self {
         case .servers, .integrations:
             return .production
-        case .php, .nodeBun, .databases, .caches, .reverb, .mail, .caddy:
+        case .php, .nodeBun, .databases, .caches, .reverb, .typesense, .mail, .caddy:
             return .development
         case .projects, .settings:
             return .none
@@ -74,6 +76,7 @@ enum NavigationSection: String, CaseIterable, Identifiable {
         case .databases: "cylinder.split.1x2"
         case .caches: "speedometer"
         case .reverb: "waveform"
+        case .typesense: "magnifyingglass"
         case .mail: "envelope"
         case .caddy: "network"
         case .settings: "gear"
