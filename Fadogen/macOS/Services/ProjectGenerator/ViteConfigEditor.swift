@@ -19,6 +19,63 @@ enum ViteConfigEditor {
         return result
     }
 
+    static func addSSRConfig(in content: String) -> String {
+        // Skip if ssr config already exists (check for ssr: { or ssr:{ pattern)
+        let ssrPattern = #"ssr\s*:\s*\{"#
+        if let ssrRegex = try? NSRegularExpression(pattern: ssrPattern, options: []),
+           ssrRegex.firstMatch(in: content, options: [], range: NSRange(content.startIndex..., in: content)) != nil {
+            return content
+        }
+
+        // Find plugins: [ and track brackets to find the end of the plugins array
+        guard let pluginsStart = content.range(of: "plugins:") else {
+            return content
+        }
+
+        // Find the opening bracket after plugins:
+        guard let openBracketIndex = content[pluginsStart.upperBound...].firstIndex(of: "[") else {
+            return content
+        }
+
+        // Track bracket depth to find the matching closing bracket
+        var depth = 1
+        var index = content.index(after: openBracketIndex)
+
+        while index < content.endIndex && depth > 0 {
+            let char = content[index]
+            if char == "[" {
+                depth += 1
+            } else if char == "]" {
+                depth -= 1
+            }
+            index = content.index(after: index)
+        }
+
+        // Now index is right after the closing ] of plugins array
+        // Find the comma after the closing bracket
+        var commaIndex = index
+        while commaIndex < content.endIndex && content[commaIndex].isWhitespace {
+            commaIndex = content.index(after: commaIndex)
+        }
+
+        if commaIndex < content.endIndex && content[commaIndex] == "," {
+            commaIndex = content.index(after: commaIndex)
+        }
+
+        // Add ssr config after the plugins array
+        let ssrConfig = """
+
+            ssr: {
+                noExternal: true,
+            },
+        """
+
+        var result = content
+        result.insert(contentsOf: ssrConfig, at: commaIndex)
+
+        return result
+    }
+
     // MARK: - Private
 
     private static func addFadogenImport(in content: String) -> String {

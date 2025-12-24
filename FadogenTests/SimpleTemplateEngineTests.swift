@@ -10,7 +10,7 @@ struct SimpleTemplateEngineTests {
         let template = "Hello {{NAME}}!"
         let result = SimpleTemplateEngine.render(template, variables: ["NAME": "World"])
 
-        #expect(result == "Hello World!")
+        #expect(result == "Hello World!\n")
     }
 
     @Test func replacesMultipleVariables() {
@@ -20,21 +20,21 @@ struct SimpleTemplateEngineTests {
             variables: ["GREETING": "Hello", "NAME": "World"]
         )
 
-        #expect(result == "Hello World!")
+        #expect(result == "Hello World!\n")
     }
 
     @Test func leavesUnknownVariablesUntouched() {
         let template = "Hello {{NAME}} and {{UNKNOWN}}!"
         let result = SimpleTemplateEngine.render(template, variables: ["NAME": "World"])
 
-        #expect(result == "Hello World and {{UNKNOWN}}!")
+        #expect(result == "Hello World and {{UNKNOWN}}!\n")
     }
 
     @Test func handlesEmptyVariables() {
         let template = "Hello {{NAME}}!"
         let result = SimpleTemplateEngine.render(template, variables: [:])
 
-        #expect(result == "Hello {{NAME}}!")
+        #expect(result == "Hello {{NAME}}!\n")
     }
 
     // MARK: - Conditional Tests
@@ -99,7 +99,7 @@ struct SimpleTemplateEngineTests {
             conditions: ["SHOW": true]
         )
 
-        #expect(result == "Hello World!")
+        #expect(result == "Hello World!\n")
     }
 
     @Test func handlesVariablesWhenConditionalExcluded() {

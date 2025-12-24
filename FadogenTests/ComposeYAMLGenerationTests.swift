@@ -2,12 +2,8 @@ import Foundation
 import Testing
 @testable import Fadogen
 
-/// Helper class to locate the test bundle
-private final class ComposeTestBundleLocator {}
-
 @MainActor
 struct ComposeYAMLTemplateSelectionTests {
-    private let testBundle = Bundle(for: ComposeTestBundleLocator.self)
 
     // MARK: - Helper
 
@@ -34,7 +30,7 @@ struct ComposeYAMLTemplateSelectionTests {
         config.taskScheduler = taskScheduler
         config.reverb = reverb
         config.octane = octane
-        return ComposeYAMLBuilder(config: config, bundle: testBundle)
+        return ComposeYAMLBuilder(config: config)
     }
 
     private func templateNames(for builder: ComposeYAMLBuilder) -> [String] {
@@ -333,7 +329,6 @@ struct ComposeYAMLTemplateSelectionTests {
 @Suite(.serialized)
 @MainActor
 struct ComposeYAMLIntegrationTests {
-    private let testBundle = Bundle(for: ComposeTestBundleLocator.self)
 
     /// App bundle accessed via a class from the main target (official approach)
     /// Bundle(for: MainAppClass.self) returns the bundle containing that class
@@ -377,7 +372,7 @@ struct ComposeYAMLIntegrationTests {
         config.taskScheduler = taskScheduler
         config.reverb = reverb
         config.octane = octane
-        return ComposeYAMLBuilder(config: config, bundle: appBundle, yqPath: yqPath)
+        return ComposeYAMLBuilder(config: config, yqPath: yqPath)
     }
 
     // MARK: - Integration Tests

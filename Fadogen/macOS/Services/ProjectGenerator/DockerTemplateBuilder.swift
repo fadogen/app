@@ -53,7 +53,6 @@ struct DockerTemplateBuilder {
             let nodeVersion = config.nodeVersion ?? "24"
             variables["NODE_VERSION"] = nodeVersion
             if hasSSR {
-                variables["SSR_IMAGE"] = "node:\(nodeVersion)-bookworm-slim"
                 variables["SSR_CMD"] = #"["node", "bootstrap/ssr/ssr.js"]"#
             }
         }

@@ -452,6 +452,9 @@ extension ProjectGeneratorService {
 
         var viteConfigContent = try String(contentsOf: viteConfigPath, encoding: .utf8)
         viteConfigContent = ViteConfigEditor.addFadogenPlugin(in: viteConfigContent)
+        if config.ssr {
+            viteConfigContent = ViteConfigEditor.addSSRConfig(in: viteConfigContent)
+        }
         try viteConfigContent.write(to: viteConfigPath, atomically: true, encoding: .utf8)
 
         let composerJsonPath = projectPath.appendingPathComponent("composer.json")

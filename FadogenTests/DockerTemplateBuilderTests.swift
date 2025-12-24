@@ -2,12 +2,8 @@ import Foundation
 import Testing
 @testable import Fadogen
 
-/// Helper class to locate the test bundle
-private final class BundleLocator {}
-
 @MainActor
 struct DockerTemplateBuilderTests {
-    private let testBundle = Bundle(for: BundleLocator.self)
 
     // MARK: - Helper
 
@@ -22,7 +18,7 @@ struct DockerTemplateBuilderTests {
         config.jsPackageManager = jsPackageManager
         config.phpVersion = phpVersion
         config.databaseType = databaseType
-        return DockerTemplateBuilder(config: config, bundle: testBundle)
+        return DockerTemplateBuilder(config: config)
     }
 
     // MARK: - Base Stage Tests
@@ -87,8 +83,10 @@ struct DockerTemplateBuilderTests {
 
     @Test func nodeImageUsedWhenNpmSelected() {
         let dockerfile = makeBuilder(jsPackageManager: .npm).generateDockerfile()
-        #expect(dockerfile.contains("COPY --from=node:24-bookworm-slim /usr/local/bin/node"))
-        #expect(dockerfile.contains("COPY --from=node:24-bookworm-slim /usr/local/lib/node_modules"))
+        // Uses node-base stage for reusability
+        #expect(dockerfile.contains("FROM node:${NODE_VERSION}-bookworm-slim AS node-base"))
+        #expect(dockerfile.contains("COPY --from=node-base /usr/local/bin/node"))
+        #expect(dockerfile.contains("COPY --from=node-base /usr/local/lib/node_modules"))
     }
 
     @Test func npmCommandsWhenNpmSelectedWithoutSSR() {
@@ -170,13 +168,15 @@ struct DockerTemplateBuilderTests {
 
     @Test func ssrStageWithNpmUsesNodeImage() {
         let dockerfile = makeBuilder(starterKit: .react, jsPackageManager: .npm).generateDockerfile()
-        #expect(dockerfile.contains("FROM node:24-bookworm-slim AS ssr"))
+        // Uses node-base stage (reused from builder)
+        #expect(dockerfile.contains("FROM node-base AS ssr"))
         #expect(dockerfile.contains(#"CMD ["node", "bootstrap/ssr/ssr.js"]"#))
     }
 
     @Test func ssrStageCopiesRequiredFiles() {
         let dockerfile = makeBuilder(starterKit: .react).generateDockerfile()
-        #expect(dockerfile.contains("COPY --from=builder /var/www/html/node_modules ./node_modules"))
+        // node_modules is NOT copied anymore (using ssr: { noExternal: true } in vite.config)
+        #expect(!dockerfile.contains("COPY --from=builder /var/www/html/node_modules ./node_modules"))
         #expect(dockerfile.contains("COPY --from=builder /var/www/html/bootstrap/ssr ./bootstrap/ssr"))
         #expect(dockerfile.contains("EXPOSE 13714"))
     }
