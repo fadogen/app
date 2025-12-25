@@ -15,7 +15,7 @@ final class ServicesManager {
     var operationErrors: [String: String] = [:]
     var operationProgress: [String: Double] = [:]
 
-    private let metadataURL = URL(string: "https://binaries.fadogen.app/metadata-services.json")!
+    private let metadataURL = URL(string: "\(GenericDownloadService.binariesBaseURL)/metadata-services.json")!
     private let modelContext: ModelContext
     private weak var serviceProcesses: ServiceProcessManager?
 

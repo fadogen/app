@@ -5,7 +5,6 @@ import OSLog
 nonisolated enum TypesenseDownloadService {
 
     private static let logger = Logger(subsystem: "app.fadogen.Fadogen", category: "typesense-download")
-    private static let baseURL = "https://binaries.fadogen.app/"
 
     // MARK: - Public
 
@@ -15,7 +14,7 @@ nonisolated enum TypesenseDownloadService {
     ) async throws -> URL {
         do {
             return try await GenericDownloadService.download(
-                baseURL: baseURL,
+                baseURL: GenericDownloadService.binariesBaseURL + "/",
                 metadata: metadata,
                 identifier: "Typesense \(metadata.latest)",
                 progressHandler: progressHandler

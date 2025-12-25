@@ -7,7 +7,6 @@ import System
 nonisolated enum PHPDownloadService {
 
     private static let logger = Logger(subsystem: "com.fadogen.app", category: "PHPDownloadService")
-    private static let baseURL = "https://binaries.fadogen.app/"
 
     // MARK: - Public
 
@@ -18,7 +17,7 @@ nonisolated enum PHPDownloadService {
     ) async throws -> URL {
         do {
             return try await GenericDownloadService.download(
-                baseURL: baseURL,
+                baseURL: GenericDownloadService.binariesBaseURL + "/",
                 metadata: metadata,
                 identifier: "PHP \(major)",
                 progressHandler: progressHandler

@@ -3,8 +3,6 @@ import Foundation
 /// Wrapper around GenericDownloadService for Composer-specific operations
 nonisolated enum ComposerDownloadService {
 
-    private static let baseURL = "https://binaries.fadogen.app/"
-
     // MARK: - Public
 
     static func download(
@@ -13,7 +11,7 @@ nonisolated enum ComposerDownloadService {
     ) async throws -> URL {
         do {
             return try await GenericDownloadService.download(
-                baseURL: baseURL,
+                baseURL: GenericDownloadService.binariesBaseURL + "/",
                 metadata: metadata,
                 identifier: "Composer",
                 progressHandler: progressHandler

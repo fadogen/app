@@ -14,7 +14,7 @@ final class PHPManager {
     var operationProgress: [String: Double] = [:]
     var operationErrors: [String: String] = [:]
 
-    private let metadataURL = URL(string: "https://binaries.fadogen.app/metadata-php.json")!
+    private let metadataURL = URL(string: "\(GenericDownloadService.binariesBaseURL)/metadata-php.json")!
     private let modelContext: ModelContext
     private let phpFPM: PHPFPMService?
     private let caddyConfig: CaddyConfigService?

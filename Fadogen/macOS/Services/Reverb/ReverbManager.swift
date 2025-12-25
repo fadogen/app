@@ -13,7 +13,7 @@ final class ReverbManager {
     var isUpdating = false
     var operationError: String?
 
-    private let metadataURL = URL(string: "https://binaries.fadogen.app/metadata-reverb.json")!
+    private let metadataURL = URL(string: "\(GenericDownloadService.binariesBaseURL)/metadata-reverb.json")!
     private let modelContext: ModelContext
     private weak var reverbProcess: ReverbProcessManager?
     private weak var caddyConfig: CaddyConfigService?

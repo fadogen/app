@@ -9,7 +9,7 @@ final class ComposerManager {
     var updateProgress: Double = 0.0
     var errorMessage: String?
 
-    private let metadataURL = URL(string: "https://binaries.fadogen.app/metadata-composer.json")!
+    private let metadataURL = URL(string: "\(GenericDownloadService.binariesBaseURL)/metadata-composer.json")!
     private let modelContext: ModelContext
 
     init(modelContext: ModelContext) {

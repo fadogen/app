@@ -6,6 +6,9 @@ import System
 /// Shared download logic for all binary types (PHP, Node, databases, etc.)
 enum GenericDownloadService {
 
+    /// Base URL for Fadogen binaries hosting
+    static let binariesBaseURL = "https://binaries.fadogen.app"
+
     // MARK: - Download
 
     static func download<M: BinaryMetadata>(

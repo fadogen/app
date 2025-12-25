@@ -13,7 +13,7 @@ final class TypesenseManager {
     var isUpdating = false
     var operationError: String?
 
-    private let metadataURL = URL(string: "https://binaries.fadogen.app/metadata-typesense.json")!
+    private let metadataURL = URL(string: "\(GenericDownloadService.binariesBaseURL)/metadata-typesense.json")!
     private let modelContext: ModelContext
     private weak var typesenseProcess: TypesenseProcessManager?
     private weak var caddyConfig: CaddyConfigService?
