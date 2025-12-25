@@ -7,54 +7,54 @@ import System
 extension ProjectGeneratorService {
     func laravelGenerationSteps() -> [GenerationStep] {
         [
-            GenerationStep(name: "Creating project...", weight: 25) { [self] config, _ in
+            GenerationStep(name: String(localized: "Creating project..."), weight: 25) { [self] config, _ in
                 try await createLaravelProject(config: config)
             },
-            GenerationStep(name: "Running post-install setup...", weight: 5) { [self] config, projectPath in
+            GenerationStep(name: String(localized: "Running post-install setup..."), weight: 5) { [self] config, projectPath in
                 try await laravelPostInstallSetup(projectPath: projectPath!, config: config)
                 return projectPath
             },
-            GenerationStep(name: "Installing JavaScript dependencies...", weight: 15) { [self] config, projectPath in
+            GenerationStep(name: String(localized: "Installing JavaScript dependencies..."), weight: 15) { [self] config, projectPath in
                 try await installJSDependencies(config: config, projectPath: projectPath!)
                 return projectPath
             },
-            GenerationStep(name: "Installing Fadogen Vite plugin...", weight: 5) { [self] config, projectPath in
+            GenerationStep(name: String(localized: "Installing Fadogen Vite plugin..."), weight: 5) { [self] config, projectPath in
                 try await installFadogenVitePlugin(config: config, projectPath: projectPath!)
                 return projectPath
             },
-            GenerationStep(name: "Configuring environment...", weight: 5) { [self] config, projectPath in
+            GenerationStep(name: String(localized: "Configuring environment..."), weight: 5) { [self] config, projectPath in
                 try await configureLaravelEnvironment(config: config, projectPath: projectPath!)
                 return projectPath
             },
-            GenerationStep(name: "Running migrations...", weight: 10) { [self] config, projectPath in
+            GenerationStep(name: String(localized: "Running migrations..."), weight: 10) { [self] config, projectPath in
                 try await runLaravelMigrations(projectPath: projectPath!, config: config)
                 return projectPath
             },
-            GenerationStep(name: "Configuring test framework...", weight: 10) { [self] config, projectPath in
+            GenerationStep(name: String(localized: "Configuring test framework..."), weight: 10) { [self] config, projectPath in
                 try await migrateToPest(config: config, projectPath: projectPath!)
                 return projectPath
             },
-            GenerationStep(name: "Installing optional packages...", weight: 15) { [self] config, projectPath in
+            GenerationStep(name: String(localized: "Installing optional packages..."), weight: 15) { [self] config, projectPath in
                 try await installOptionalPackages(config: config, projectPath: projectPath!)
                 return projectPath
             },
-            GenerationStep(name: "Configuring proxy settings...", weight: 2) { [self] config, projectPath in
+            GenerationStep(name: String(localized: "Configuring proxy settings..."), weight: 2) { [self] config, projectPath in
                 try await configureTrustedProxies(config: config, projectPath: projectPath!)
                 return projectPath
             },
-            GenerationStep(name: "Generating Docker configuration...", weight: 5) { [self] config, projectPath in
+            GenerationStep(name: String(localized: "Generating Docker configuration..."), weight: 5) { [self] config, projectPath in
                 try await generateDockerFiles(config: config, projectPath: projectPath!)
                 return projectPath
             },
-            GenerationStep(name: "Creating production environment template...", weight: 3) { [self] config, projectPath in
+            GenerationStep(name: String(localized: "Creating production environment template..."), weight: 3) { [self] config, projectPath in
                 try await createProductionEnvTemplate(projectPath: projectPath!, config: config)
                 return projectPath
             },
-            GenerationStep(name: "Syncing environment files...", weight: 1) { [self] _, projectPath in
+            GenerationStep(name: String(localized: "Syncing environment files..."), weight: 1) { [self] _, projectPath in
                 try syncEnvExample(projectPath: projectPath!)
                 return projectPath
             },
-            GenerationStep(name: "Initializing Git repository...", weight: 10) { [self] _, projectPath in
+            GenerationStep(name: String(localized: "Initializing Git repository..."), weight: 10) { [self] _, projectPath in
                 try await initializeGit(projectPath: projectPath!)
                 return projectPath
             }

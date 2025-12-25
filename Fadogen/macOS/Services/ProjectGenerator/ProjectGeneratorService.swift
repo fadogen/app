@@ -719,7 +719,7 @@ final class ProjectGeneratorService {
         state = .generating
         progress = 0.0
         error = nil
-        currentStep = "Preparing prerequisites..."
+        currentStep = String(localized: "Preparing prerequisites...")
 
         // Phase 0: Ensure all prerequisites are met (PHP, database, cache, reverb)
         // This modifies normalizedConfig with discovered ports
@@ -766,7 +766,7 @@ final class ProjectGeneratorService {
             }
 
             state = .completed
-            currentStep = "Project created successfully"
+            currentStep = String(localized: "Project created successfully")
             progress = 1.0
 
             return projectPath!
