@@ -242,6 +242,7 @@ struct ProjectConfiguration {
     var reverb: Bool = false
     var octane: Bool = false
     var scout: Bool = false
+    var s3Storage: Bool = false
 
     // Symfony-specific
     var symfonyProjectType: SymfonyProjectType = .webapp
@@ -257,6 +258,9 @@ struct ProjectConfiguration {
     var valkeyVersion: String?
     var redisVersion: String?
     var typesenseVersion: String?
+
+    // S3 Storage (populated during project generation)
+    var garageBucket: String?
 
     // Runtime Versions for Dockerfile (populated from installed/bundled versions)
     var nodeVersion: String?  // e.g., "24" for node:24-bookworm-slim
@@ -300,6 +304,7 @@ struct ProjectConfiguration {
             config.reverb = false
             config.octane = false
             config.scout = false
+            config.s3Storage = false
             return config
         }
 
@@ -352,6 +357,9 @@ enum PrerequisiteError: LocalizedError {
     case reverbStartFailed(Error)
     case typesenseInstallationFailed(Error)
     case typesenseStartFailed(Error)
+    case garageInstallationFailed(Error)
+    case garageStartFailed(Error)
+    case garageBucketCreationFailed(String, Error)
     case bunInstallationFailed(Error)
     case metadataNotAvailable
 
@@ -373,6 +381,12 @@ enum PrerequisiteError: LocalizedError {
             return "Failed to install Typesense: \(error.localizedDescription)"
         case .typesenseStartFailed(let error):
             return "Failed to start Typesense: \(error.localizedDescription)"
+        case .garageInstallationFailed(let error):
+            return "Failed to install Garage: \(error.localizedDescription)"
+        case .garageStartFailed(let error):
+            return "Failed to start Garage: \(error.localizedDescription)"
+        case .garageBucketCreationFailed(let bucket, let error):
+            return "Failed to create bucket '\(bucket)': \(error.localizedDescription)"
         case .bunInstallationFailed(let error):
             return "Failed to install Bun: \(error.localizedDescription)"
         case .metadataNotAvailable:

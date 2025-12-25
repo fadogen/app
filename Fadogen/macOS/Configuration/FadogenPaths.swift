@@ -118,6 +118,31 @@ nonisolated enum FadogenPaths {
         dataDirectory.appendingPathComponent("typesense")
     }
 
+    /// Garage S3 binary directory: /Users/Shared/Fadogen/garage
+    /// Contains the Garage S3 storage server binary
+    static var garageBinaryPath: URL {
+        sharedBinariesDirectory.appendingPathComponent("garage")
+    }
+
+    /// Garage data directory: ~/Library/Application Support/Fadogen/data/garage
+    /// Used for Garage metadata and data blocks
+    static var garageDataDirectory: URL {
+        dataDirectory.appendingPathComponent("garage")
+    }
+
+    /// Garage config directory: ~/Library/Application Support/Fadogen/config/garage
+    /// Contains garage.toml configuration file
+    static var garageConfigDirectory: URL {
+        baseDirectory
+            .appendingPathComponent("config")
+            .appendingPathComponent("garage")
+    }
+
+    /// Garage config file path: ~/Library/Application Support/Fadogen/config/garage/garage.toml
+    static var garageConfigPath: URL {
+        garageConfigDirectory.appendingPathComponent("garage.toml")
+    }
+
     /// Node.js versions directory: /Users/Shared/Fadogen/node
     /// Contains all installed Node.js versions
     static var nodeVersionsDirectory: URL {

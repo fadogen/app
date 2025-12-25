@@ -279,6 +279,9 @@ struct NewProjectView: View {
 
             // Scout (Typesense search)
             Toggle("Scout", isOn: $config.scout)
+
+            // S3 Storage (Garage)
+            Toggle("S3 Storage", isOn: $config.s3Storage)
         }
     }
 

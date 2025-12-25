@@ -145,4 +145,32 @@ enum EnvFileEditor {
 
         return result
     }
+
+    /// Configure Garage S3 storage for development
+    /// - Parameters:
+    ///   - content: The .env file content
+    ///   - bucketName: The S3 bucket name for the project
+    /// - Returns: Modified .env content with Garage S3 configuration
+    static func configureGarageS3(in content: String, bucketName: String) -> String {
+        var result = content
+
+        // Replace existing AWS_ variables (Laravel includes them by default)
+        result = setValue(in: result, key: "AWS_ACCESS_KEY_ID", value: garageAccessKeyId)
+        result = setValue(in: result, key: "AWS_SECRET_ACCESS_KEY", value: garageSecretAccessKey)
+        result = setValue(in: result, key: "AWS_DEFAULT_REGION", value: "garage")
+        result = setValue(in: result, key: "AWS_BUCKET", value: bucketName)
+        result = setValue(in: result, key: "AWS_USE_PATH_STYLE_ENDPOINT", value: "true")
+
+        // AWS_ENDPOINT doesn't exist in Laravel's default .env, append it after AWS_BUCKET
+        if !result.contains("AWS_ENDPOINT=") {
+            result = result.replacingOccurrences(
+                of: "AWS_BUCKET=\(bucketName)",
+                with: "AWS_BUCKET=\(bucketName)\nAWS_ENDPOINT=https://s3.localhost"
+            )
+        } else {
+            result = setValue(in: result, key: "AWS_ENDPOINT", value: "https://s3.localhost")
+        }
+
+        return result
+    }
 }

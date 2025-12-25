@@ -5,7 +5,7 @@ extension String {
     /// Reserved hostnames used by Fadogen services
     /// Projects with these names will have "-project" appended to avoid conflicts
     nonisolated private static var reservedHostnames: Set<String> {
-        ["reverb", "typesense", "mail"]
+        ["reverb", "typesense", "mail", "s3"]
     }
 
     /// Sanitize to RFC 1123 hostname (a-z, 0-9, hyphen, 1-63 chars)
