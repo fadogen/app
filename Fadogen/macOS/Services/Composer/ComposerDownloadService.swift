@@ -11,7 +11,6 @@ nonisolated enum ComposerDownloadService {
     ) async throws -> URL {
         do {
             return try await GenericDownloadService.download(
-                baseURL: GenericDownloadService.binariesBaseURL + "/",
                 metadata: metadata,
                 identifier: "Composer",
                 progressHandler: progressHandler

@@ -14,7 +14,6 @@ nonisolated enum TypesenseDownloadService {
     ) async throws -> URL {
         do {
             return try await GenericDownloadService.download(
-                baseURL: GenericDownloadService.binariesBaseURL + "/",
                 metadata: metadata,
                 identifier: "Typesense \(metadata.latest)",
                 progressHandler: progressHandler

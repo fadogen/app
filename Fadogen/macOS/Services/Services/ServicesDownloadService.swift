@@ -16,7 +16,6 @@ nonisolated enum ServicesDownloadService {
     ) async throws -> URL {
         do {
             return try await GenericDownloadService.download(
-                baseURL: GenericDownloadService.binariesBaseURL + "/",
                 metadata: metadata,
                 identifier: "\(service.displayName) \(major)",
                 progressHandler: progressHandler

@@ -14,7 +14,6 @@ nonisolated enum GarageDownloadService {
     ) async throws -> URL {
         do {
             return try await GenericDownloadService.download(
-                baseURL: GenericDownloadService.binariesBaseURL + "/",
                 metadata: metadata,
                 identifier: "Garage \(metadata.latest)",
                 progressHandler: progressHandler

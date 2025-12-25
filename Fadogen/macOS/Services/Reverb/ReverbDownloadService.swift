@@ -14,7 +14,6 @@ nonisolated enum ReverbDownloadService {
     ) async throws -> URL {
         do {
             return try await GenericDownloadService.download(
-                baseURL: GenericDownloadService.binariesBaseURL + "/",
                 metadata: metadata,
                 identifier: "Reverb \(metadata.latest)",
                 progressHandler: progressHandler

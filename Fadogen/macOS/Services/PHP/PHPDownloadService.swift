@@ -17,7 +17,6 @@ nonisolated enum PHPDownloadService {
     ) async throws -> URL {
         do {
             return try await GenericDownloadService.download(
-                baseURL: GenericDownloadService.binariesBaseURL + "/",
                 metadata: metadata,
                 identifier: "PHP \(major)",
                 progressHandler: progressHandler

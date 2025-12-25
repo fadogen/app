@@ -12,7 +12,7 @@ enum GenericDownloadService {
     // MARK: - Download
 
     static func download<M: BinaryMetadata>(
-        baseURL: String,
+        baseURL: String = binariesBaseURL + "/",
         metadata: M,
         identifier: String,
         progressHandler: @escaping @Sendable (Double) -> Void
