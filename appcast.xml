@@ -6,22 +6,18 @@
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
     <item>
-      <title>Version 1.2.0</title>
+      <title>Version 1.2.1</title>
       
       <description><![CDATA[<ul>
-<li>fix(ui): set static navigation title for ProjectsView</li>
-<li>Feat/typesense</li>
-<li>fix: rename symfony-automations.sh to 99-symfony-automations.sh</li>
-<li>optimize ssr image</li>
-<li>optimize binaries downloader</li>
+<li>fix(i18n): add missing translations for generation steps</li>
 </ul>]]></description>
-      <pubDate>Wed, 24 Dec 2025 15:54:57 +0000</pubDate>
-      <sparkle:version>37</sparkle:version>
-      <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+      <pubDate>Thu, 25 Dec 2025 08:54:08 +0000</pubDate>
+      <sparkle:version>38</sparkle:version>
+      <sparkle:shortVersionString>1.2.1</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-      <enclosure url="https://github.com/fadogen/app/releases/download/v1.2.0/Fadogen-v1.2.0.dmg"
-                 sparkle:edSignature="Ny2AE7JYsbFnHDl4n41BTj/eV2cQ++cPiA8yrOWNwftp/wYfzsMdquoCR11xs8vIly0LKGGaSqggHitwshw/Ag=="
-                 length="235198483"
+      <enclosure url="https://github.com/fadogen/app/releases/download/v1.2.1/Fadogen-v1.2.1.dmg"
+                 sparkle:edSignature="8WaQODWrr8xAnB5eSsfwo5scQPJdMffd0W1au+tmM0av1xtEHe3a5wo298tsY/g+cI6vTKzdDVYpIpQZazfrCg=="
+                 length="235196481"
                  type="application/octet-stream"/>
     </item>
   </channel>
