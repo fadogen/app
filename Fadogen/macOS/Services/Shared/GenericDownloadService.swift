@@ -6,10 +6,18 @@ import System
 /// Shared download logic for all binary types (PHP, Node, databases, etc.)
 enum GenericDownloadService {
 
+    /// Base URL for Fadogen binaries hosting
+    static let binariesBaseURL = "https://binaries.fadogen.app"
+
+    /// Constructs metadata URL for a given service name
+    static func metadataURL(for service: String) -> URL {
+        URL(string: "\(binariesBaseURL)/metadata-\(service).json")!
+    }
+
     // MARK: - Download
 
     static func download<M: BinaryMetadata>(
-        baseURL: String,
+        baseURL: String = binariesBaseURL + "/",
         metadata: M,
         identifier: String,
         progressHandler: @escaping @Sendable (Double) -> Void
