@@ -13,7 +13,7 @@ final class GarageManager {
     var isUpdating = false
     var operationError: String?
 
-    private let metadataURL = URL(string: "\(GenericDownloadService.binariesBaseURL)/metadata-garage.json")!
+    private let metadataURL = GenericDownloadService.metadataURL(for: "garage")
     private let modelContext: ModelContext
     private weak var garageProcess: GarageProcessManager?
     private weak var garageInitializer: GarageInitializer?

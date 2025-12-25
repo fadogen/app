@@ -15,7 +15,7 @@ final class ServicesManager {
     var operationErrors: [String: String] = [:]
     var operationProgress: [String: Double] = [:]
 
-    private let metadataURL = URL(string: "\(GenericDownloadService.binariesBaseURL)/metadata-services.json")!
+    private let metadataURL = GenericDownloadService.metadataURL(for: "services")
     private let modelContext: ModelContext
     private weak var serviceProcesses: ServiceProcessManager?
 

@@ -9,6 +9,11 @@ enum GenericDownloadService {
     /// Base URL for Fadogen binaries hosting
     static let binariesBaseURL = "https://binaries.fadogen.app"
 
+    /// Constructs metadata URL for a given service name
+    static func metadataURL(for service: String) -> URL {
+        URL(string: "\(binariesBaseURL)/metadata-\(service).json")!
+    }
+
     // MARK: - Download
 
     static func download<M: BinaryMetadata>(

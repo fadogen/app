@@ -9,7 +9,7 @@ final class ComposerManager {
     var updateProgress: Double = 0.0
     var errorMessage: String?
 
-    private let metadataURL = URL(string: "\(GenericDownloadService.binariesBaseURL)/metadata-composer.json")!
+    private let metadataURL = GenericDownloadService.metadataURL(for: "composer")
     private let modelContext: ModelContext
 
     init(modelContext: ModelContext) {
