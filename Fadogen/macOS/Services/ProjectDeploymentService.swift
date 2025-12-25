@@ -99,25 +99,34 @@ final class ProjectDeploymentService {
 
                     // If server has Cloudflare Tunnel, add HTTP route
                     if let tunnel = server.cloudflareTunnel,
-                       let tunnelID = tunnel.tunnelID,
-                       let integration = tunnel.integration {
+                       let tunnelID = tunnel.tunnelID {
 
-                        guard let email = integration.credentials.email,
-                              let apiKey = integration.credentials.globalAPIKey else {
-                            throw CloudflareError.unauthorized
+                        // Get integration from tunnel, or fallback to fetching Cloudflare integration
+                        let integration: Integration? = tunnel.integration ?? (try? fetchCloudflareIntegration())
+
+                        if let integration {
+                            // Fix the tunnel by attaching the integration for future use
+                            if tunnel.integration == nil {
+                                tunnel.integration = integration
+                            }
+
+                            guard let email = integration.credentials.email,
+                                  let apiKey = integration.credentials.globalAPIKey else {
+                                throw CloudflareError.unauthorized
+                            }
+
+                            let cloudflareService = CloudflareService()
+                            let accountID = try await cloudflareService.getAccountID(integration: integration)
+
+                            try await cloudflareService.addHTTPRouteToTunnel(
+                                tunnelID: tunnelID,
+                                hostname: fqdn,
+                                localPort: 80,
+                                accountID: accountID,
+                                email: email,
+                                apiKey: apiKey
+                            )
                         }
-
-                        let cloudflareService = CloudflareService()
-                        let accountID = try await cloudflareService.getAccountID(integration: integration)
-
-                        try await cloudflareService.addHTTPRouteToTunnel(
-                            tunnelID: tunnelID,
-                            hostname: fqdn,
-                            localPort: 80,
-                            accountID: accountID,
-                            email: email,
-                            apiKey: apiKey
-                        )
                     }
                 }
             }
@@ -289,24 +298,32 @@ final class ProjectDeploymentService {
 
                 // Add Cloudflare Tunnel HTTP route if applicable
                 if let tunnel = server.cloudflareTunnel,
-                   let tunnelID = tunnel.tunnelID,
-                   let integration = tunnel.integration {
+                   let tunnelID = tunnel.tunnelID {
 
-                    guard let email = integration.credentials.email,
-                          let apiKey = integration.credentials.globalAPIKey else {
-                        throw CloudflareError.unauthorized
+                    // Get integration from tunnel, or fallback to fetching Cloudflare integration
+                    let integration: Integration? = tunnel.integration ?? (try? fetchCloudflareIntegration())
+
+                    if let integration {
+                        if tunnel.integration == nil {
+                            tunnel.integration = integration
+                        }
+
+                        guard let email = integration.credentials.email,
+                              let apiKey = integration.credentials.globalAPIKey else {
+                            throw CloudflareError.unauthorized
+                        }
+
+                        let accountID = try await cloudflareService.getAccountID(integration: integration)
+
+                        try await cloudflareService.addHTTPRouteToTunnel(
+                            tunnelID: tunnelID,
+                            hostname: fqdn,
+                            localPort: 80,
+                            accountID: accountID,
+                            email: email,
+                            apiKey: apiKey
+                        )
                     }
-
-                    let accountID = try await cloudflareService.getAccountID(integration: integration)
-
-                    try await cloudflareService.addHTTPRouteToTunnel(
-                        tunnelID: tunnelID,
-                        hostname: fqdn,
-                        localPort: 80,
-                        accountID: accountID,
-                        email: email,
-                        apiKey: apiKey
-                    )
                 }
             }
         }
@@ -549,24 +566,32 @@ final class ProjectDeploymentService {
         // 2. Cloudflare Tunnel HTTP route (idempotent)
         if let tunnel = server.cloudflareTunnel,
            let tunnelID = tunnel.tunnelID,
-           let integration = tunnel.integration,
            let fqdn = deployedProject.productionDomain {
 
-            guard let email = integration.credentials.email,
-                  let apiKey = integration.credentials.globalAPIKey else {
-                throw CloudflareError.unauthorized
+            // Get integration from tunnel, or fallback to fetching Cloudflare integration
+            let integration: Integration? = tunnel.integration ?? (try? fetchCloudflareIntegration())
+
+            if let integration {
+                if tunnel.integration == nil {
+                    tunnel.integration = integration
+                }
+
+                guard let email = integration.credentials.email,
+                      let apiKey = integration.credentials.globalAPIKey else {
+                    throw CloudflareError.unauthorized
+                }
+
+                let accountID = try await cloudflareService.getAccountID(integration: integration)
+
+                try await cloudflareService.addHTTPRouteToTunnel(
+                    tunnelID: tunnelID,
+                    hostname: fqdn,
+                    localPort: 80,
+                    accountID: accountID,
+                    email: email,
+                    apiKey: apiKey
+                )
             }
-
-            let accountID = try await cloudflareService.getAccountID(integration: integration)
-
-            try await cloudflareService.addHTTPRouteToTunnel(
-                tunnelID: tunnelID,
-                hostname: fqdn,
-                localPort: 80,
-                accountID: accountID,
-                email: email,
-                apiKey: apiKey
-            )
         }
 
         // 3. Traefik DNS configuration (idempotent)
@@ -734,12 +759,20 @@ final class ProjectDeploymentService {
         // 2. Remove old tunnel HTTP route if applicable
         if let oldDomain = oldDomain,
            let tunnel = server.cloudflareTunnel,
-           let tunnelID = tunnel.tunnelID,
-           let integration = tunnel.integration,
-           let email = integration.credentials.email,
-           let apiKey = integration.credentials.globalAPIKey {
+           let tunnelID = tunnel.tunnelID {
 
-            if let accountID = try? await cloudflareService.getAccountID(integration: integration) {
+            // Get integration from tunnel, or fallback to fetching Cloudflare integration
+            let integration: Integration?
+            if let tunnelIntegration = tunnel.integration {
+                integration = tunnelIntegration
+            } else {
+                integration = try? fetchCloudflareIntegration()
+            }
+
+            if let integration,
+               let email = integration.credentials.email,
+               let apiKey = integration.credentials.globalAPIKey,
+               let accountID = try? await cloudflareService.getAccountID(integration: integration) {
                 try? await cloudflareService.removeHTTPRouteFromTunnel(
                     tunnelID: tunnelID,
                     hostname: oldDomain,
@@ -835,6 +868,18 @@ final class ProjectDeploymentService {
                 region: region
             )
         }
+    }
+
+    /// Fetch the first Cloudflare integration from the database
+    /// Used as fallback when tunnel.integration is nil (legacy tunnels)
+    private func fetchCloudflareIntegration() throws -> Integration? {
+        let cloudflareRawValue = IntegrationType.cloudflare.rawValue
+        let descriptor = FetchDescriptor<Integration>(
+            predicate: #Predicate { integration in
+                integration.typeRawValue == cloudflareRawValue
+            }
+        )
+        return try modelContext.fetch(descriptor).first
     }
 
 }

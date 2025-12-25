@@ -92,7 +92,11 @@ struct ProductionConfigurationView: View {
     /// Filtered zones based on server configuration
     /// If server has Cloudflare Tunnel, only show Cloudflare DNS zones
     private var filteredZones: [DNSZone] {
-        guard let server = selectedServer, server.cloudflareTunnel != nil else {
+        guard let server = selectedServer else {
+            return availableZones
+        }
+
+        guard server.cloudflareTunnel != nil else {
             return availableZones
         }
 
@@ -312,7 +316,7 @@ struct ProductionConfigurationView: View {
                 debouncedCheckDNSRecord()
             }
         }
-        .onChange(of: selectedServer) { _, newServer in
+        .onChange(of: selectedServer) { _, _ in
             // Reset zone selection if it's no longer in filtered zones
             if let currentZone = selectedZone {
                 if !filteredZones.contains(where: { $0.id == currentZone.id }) {
