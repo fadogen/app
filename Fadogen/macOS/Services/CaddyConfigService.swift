@@ -134,6 +134,9 @@ final class CaddyConfigService {
         // Check if Typesense is installed and get port
         let typesenseConfig = getTypesenseConfiguration()
 
+        // Check if Garage S3 is installed and get port
+        let garageConfig = getGarageConfiguration()
+
         // Check if Mailpit is configured
         let mailpitConfig = getMailpitConfiguration()
 
@@ -167,6 +170,23 @@ http://typesense.localhost {
 }
 
 https://typesense.localhost {
+    tls internal
+    reverse_proxy http://127.0.0.1:\(port)
+}
+
+
+"""
+        }
+
+        // Add Garage S3 proxy configuration if installed
+        if let port = garageConfig {
+            content += """
+# Garage S3 storage proxy
+http://s3.localhost {
+    redir https://s3.localhost{uri} permanent
+}
+
+https://s3.localhost {
     tls internal
     reverse_proxy http://127.0.0.1:\(port)
 }
@@ -252,6 +272,20 @@ import projects/*
         }
 
         return typesense.port
+    }
+
+    /// Get Garage S3 configuration if installed
+    /// - Returns: S3 port number if Garage is installed, nil otherwise
+    private func getGarageConfiguration() -> Int? {
+        let descriptor = FetchDescriptor<GarageVersion>(
+            predicate: #Predicate { $0.uniqueIdentifier == "garage" }
+        )
+
+        guard let garage = try? modelContext.fetch(descriptor).first else {
+            return nil
+        }
+
+        return garage.s3Port
     }
 
     /// Generate Caddyfile content for a project

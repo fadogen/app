@@ -21,6 +21,8 @@ final class ProjectGeneratorService {
     var reverbProcess: ReverbProcessManager?
     var typesenseManager: TypesenseManager?
     var typesenseProcess: TypesenseProcessManager?
+    var garageManager: GarageManager?
+    var garageProcess: GarageProcessManager?
     var bunManager: BunManager?
     var nodeManager: NodeManager?
     var modelContext: ModelContext?
@@ -272,12 +274,14 @@ final class ProjectGeneratorService {
         let needsCache = requiredCacheServiceType(from: config) != nil
         let needsReverb = config.reverb
         let needsTypesense = config.scout
+        let needsGarage = config.s3Storage
         let needsBun = config.jsPackageManager == .bun
 
         if needsDatabase { activeStepCount += 1 }
         if needsCache { activeStepCount += 1 }
         if needsReverb { activeStepCount += 1 }
         if needsTypesense { activeStepCount += 1 }
+        if needsGarage { activeStepCount += 1 }
         if needsBun { activeStepCount += 1 }
 
         // Prerequisites use 0-15% of total progress, divided evenly among active steps
@@ -286,7 +290,7 @@ final class ProjectGeneratorService {
 
         // 1. Ensure PHP version is installed (always active)
         try Task.checkCancellation()
-        currentStep = "Checking PHP \(config.phpVersion)..."
+        currentStep = String(localized: "Checking PHP \(config.phpVersion)...")
         try await ensurePHPVersion(config.phpVersion)
         completedSteps += 1
         progress = stepProgress * Double(completedSteps)
@@ -294,7 +298,7 @@ final class ProjectGeneratorService {
         // 2. Ensure database service (if not SQLite)
         if let serviceType = config.databaseType.toServiceType() {
             try Task.checkCancellation()
-            currentStep = "Checking \(serviceType.displayName)..."
+            currentStep = String(localized: "Checking \(serviceType.displayName)...")
             let port = try await ensureService(serviceType, config: &config)
             config.databasePort = port
             completedSteps += 1
@@ -304,7 +308,7 @@ final class ProjectGeneratorService {
         // 3. Ensure cache service (if Redis/Valkey needed for queue or cache)
         if let cacheServiceType = requiredCacheServiceType(from: config) {
             try Task.checkCancellation()
-            currentStep = "Checking \(cacheServiceType.displayName)..."
+            currentStep = String(localized: "Checking \(cacheServiceType.displayName)...")
             let port = try await ensureService(cacheServiceType, config: &config)
             config.cachePort = port
             completedSteps += 1
@@ -314,7 +318,7 @@ final class ProjectGeneratorService {
         // 4. Ensure Reverb service (if toggle enabled)
         if config.reverb {
             try Task.checkCancellation()
-            currentStep = "Checking Reverb..."
+            currentStep = String(localized: "Checking Reverb...")
             try await ensureReverbService()
             completedSteps += 1
             progress = stepProgress * Double(completedSteps)
@@ -323,22 +327,31 @@ final class ProjectGeneratorService {
         // 5. Ensure Typesense service (if Scout toggle enabled)
         if config.scout {
             try Task.checkCancellation()
-            currentStep = "Checking Typesense..."
+            currentStep = String(localized: "Checking Typesense...")
             try await ensureTypesenseService(config: &config)
             completedSteps += 1
             progress = stepProgress * Double(completedSteps)
         }
 
-        // 6. Ensure Bun is installed (if selected as JS package manager)
+        // 6. Ensure Garage service (if S3 storage toggle enabled)
+        if config.s3Storage {
+            try Task.checkCancellation()
+            currentStep = String(localized: "Checking Garage S3...")
+            try await ensureGarageService()
+            completedSteps += 1
+            progress = stepProgress * Double(completedSteps)
+        }
+
+        // 7. Ensure Bun is installed (if selected as JS package manager)
         if config.jsPackageManager == .bun {
             try Task.checkCancellation()
-            currentStep = "Checking Bun..."
+            currentStep = String(localized: "Checking Bun...")
             try await ensureBun()
             completedSteps += 1
             progress = stepProgress * Double(completedSteps)
         }
 
-        // 6. Store runtime versions for Dockerfile generation
+        // 8. Store runtime versions for Dockerfile generation
         storeRuntimeVersions(in: &config)
 
         // Ensure we're at exactly 15% at end of prerequisites
@@ -410,7 +423,7 @@ final class ProjectGeneratorService {
             throw PrerequisiteError.phpNotAvailable(major)
         }
 
-        currentStep = "Installing PHP \(major)..."
+        currentStep = String(localized: "Installing PHP \(major)...")
 
         do {
             try await phpManager.install(major: major)
@@ -438,7 +451,7 @@ final class ProjectGeneratorService {
                 // Install the latest version alongside the existing one
                 let port = try servicesManager.suggestPort(for: serviceType)
 
-                currentStep = "Installing \(serviceType.displayName) \(latestMajor)..."
+                currentStep = String(localized: "Installing \(serviceType.displayName) \(latestMajor)...")
 
                 do {
                     try await servicesManager.install(
@@ -458,7 +471,7 @@ final class ProjectGeneratorService {
 
             // No upgrade - use existing version
             if !serviceProcesses.isRunning(service: serviceType, major: existing.major) {
-                currentStep = "Starting \(serviceType.displayName)..."
+                currentStep = String(localized: "Starting \(serviceType.displayName)...")
                 do {
                     try await serviceProcesses.start(
                         service: serviceType,
@@ -483,7 +496,7 @@ final class ProjectGeneratorService {
         // Get available port
         let port = try servicesManager.suggestPort(for: serviceType)
 
-        currentStep = "Installing \(serviceType.displayName) \(major)..."
+        currentStep = String(localized: "Installing \(serviceType.displayName) \(major)...")
 
         do {
             // Install with autoStart: true (will start automatically after install)
@@ -536,7 +549,7 @@ final class ProjectGeneratorService {
         if let existingReverb = try? findInstalledReverb() {
             // Reverb installed - check if running
             if !reverbProcess.isRunning {
-                currentStep = "Starting Reverb..."
+                currentStep = String(localized: "Starting Reverb...")
                 do {
                     try await reverbProcess.start(port: existingReverb.port)
                 } catch {
@@ -559,7 +572,7 @@ final class ProjectGeneratorService {
         // Get available port (default 8080, or next available)
         let port = try suggestReverbPort()
 
-        currentStep = "Installing Reverb..."
+        currentStep = String(localized: "Installing Reverb...")
 
         do {
             // Install with autoStart: true
@@ -588,7 +601,7 @@ final class ProjectGeneratorService {
             throw PrerequisiteError.metadataNotAvailable
         }
 
-        currentStep = "Installing Bun..."
+        currentStep = String(localized: "Installing Bun...")
 
         do {
             try await bunManager.install()
@@ -604,7 +617,7 @@ final class ProjectGeneratorService {
         if let existingTypesense = try? findInstalledTypesense() {
             // Typesense installed - check if running
             if !typesenseProcess.isRunning {
-                currentStep = "Starting Typesense..."
+                currentStep = String(localized: "Starting Typesense...")
                 do {
                     try await typesenseProcess.start(port: existingTypesense.port)
                 } catch {
@@ -629,7 +642,7 @@ final class ProjectGeneratorService {
         // Get available port (default 8108)
         let port = suggestTypesensePort()
 
-        currentStep = "Installing Typesense..."
+        currentStep = String(localized: "Installing Typesense...")
 
         do {
             // Install with autoStart: true
@@ -671,6 +684,96 @@ final class ProjectGeneratorService {
         )
 
         return try modelContext.fetch(descriptor).first
+    }
+
+    private func ensureGarageService() async throws {
+        guard let garageManager, let garageProcess else { return }
+
+        // Check if already installed
+        if let existing = try? findInstalledGarage() {
+            // Garage installed - check if running
+            if !garageProcess.isRunning {
+                currentStep = String(localized: "Starting Garage...")
+                do {
+                    try await garageProcess.start(s3Port: existing.s3Port)
+                } catch {
+                    throw PrerequisiteError.garageStartFailed(error)
+                }
+            }
+            return
+        }
+
+        // Not installed - need to install
+        if garageManager.availableMetadata == nil {
+            await garageManager.refresh()
+        }
+
+        guard garageManager.availableMetadata != nil else {
+            throw PrerequisiteError.metadataNotAvailable
+        }
+
+        currentStep = String(localized: "Installing Garage...")
+
+        do {
+            try await garageManager.install(autoStart: true)
+        } catch {
+            throw PrerequisiteError.garageInstallationFailed(error)
+        }
+    }
+
+    private func findInstalledGarage() throws -> GarageVersion? {
+        guard let modelContext else { return nil }
+
+        let garageId = "garage"
+        let descriptor = FetchDescriptor<GarageVersion>(
+            predicate: #Predicate { $0.uniqueIdentifier == garageId }
+        )
+
+        return try modelContext.fetch(descriptor).first
+    }
+
+    func createGarageBucket(name: String) async throws {
+        let garagePath = FadogenPaths.garageBinaryPath.appendingPathComponent("garage").path
+        let configPath = FadogenPaths.garageConfigPath.path
+
+        // Create bucket
+        let createResult = try await run(
+            .path(FilePath(garagePath)),
+            arguments: ["-c", configPath, "bucket", "create", name],
+            output: .string(limit: .max),
+            error: .string(limit: .max)
+        )
+
+        // Ignore "already exists" error
+        if !createResult.terminationStatus.isSuccess {
+            let errorOutput = createResult.standardError ?? ""
+            if !errorOutput.contains("already exists") {
+                throw PrerequisiteError.garageBucketCreationFailed(
+                    name,
+                    NSError(domain: "Garage", code: 1,
+                        userInfo: [NSLocalizedDescriptionKey: errorOutput])
+                )
+            }
+        }
+
+        // Grant permissions to the key
+        let allowResult = try await run(
+            .path(FilePath(garagePath)),
+            arguments: [
+                "-c", configPath, "bucket", "allow",
+                "--read", "--write", name,
+                "--key", "fadogen-garage-key"
+            ],
+            output: .string(limit: .max),
+            error: .string(limit: .max)
+        )
+
+        guard allowResult.terminationStatus.isSuccess else {
+            let errorOutput = allowResult.standardError ?? "Unknown error"
+            throw PrerequisiteError.garageBucketCreationFailed(name,
+                NSError(domain: "Garage", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: errorOutput]))
+        }
     }
 
     private func latestMajorVersion(for serviceType: ServiceType) -> String? {
@@ -773,7 +876,7 @@ final class ProjectGeneratorService {
 
         } catch is CancellationError {
             state = .cancelled
-            currentStep = "Generation cancelled"
+            currentStep = String(localized: "Generation cancelled")
             error = .cancelled
             cleanupProjectFolder()
             throw ProjectGeneratorError.cancelled

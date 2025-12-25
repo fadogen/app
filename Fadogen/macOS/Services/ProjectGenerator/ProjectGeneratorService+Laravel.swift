@@ -377,6 +377,29 @@ extension ProjectGeneratorService {
             envContent = EnvFileEditor.configureScout(in: envContent, projectName: projectName, hasQueueWorker: hasQueueWorker)
             try envContent.write(to: envPath, atomically: true, encoding: .utf8)
         }
+
+        if config.s3Storage {
+            // Install Flysystem S3 adapter
+            try await runCommand(
+                phpBinary,
+                arguments: [
+                    composerPhar.path, "require",
+                    "league/flysystem-aws-s3-v3", "^3.0",
+                    "--with-all-dependencies"
+                ],
+                workingDirectory: projectPath
+            )
+
+            // Create bucket for this project
+            let bucketName = config.projectName.sanitizedHostname() ?? "default"
+            try await createGarageBucket(name: bucketName)
+
+            // Configure .env
+            let envPath = projectPath.appendingPathComponent(".env")
+            var envContent = try String(contentsOf: envPath, encoding: .utf8)
+            envContent = EnvFileEditor.configureGarageS3(in: envContent, bucketName: bucketName)
+            try envContent.write(to: envPath, atomically: true, encoding: .utf8)
+        }
     }
 
     func installEchoPackages(config: ProjectConfiguration, projectPath: URL) async throws {
@@ -669,6 +692,21 @@ extension ProjectGeneratorService {
                 TYPESENSE_HOST=typesense
                 TYPESENSE_PORT=8108
                 TYPESENSE_PROTOCOL=http
+                """
+        }
+
+        if config.s3Storage {
+            let bucketName = config.projectName.sanitizedHostname() ?? "app"
+            template += """
+
+
+                # S3 Storage (AWS, Cloudflare R2, Backblaze B2, etc.)
+                AWS_ACCESS_KEY_ID=
+                AWS_SECRET_ACCESS_KEY=
+                AWS_DEFAULT_REGION=
+                AWS_BUCKET=\(bucketName)
+                AWS_ENDPOINT=
+                AWS_USE_PATH_STYLE_ENDPOINT=false
                 """
         }
 

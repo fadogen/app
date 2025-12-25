@@ -261,23 +261,31 @@ final class TypesenseManager {
                 throw TypesenseRemoveError.notInstalled
             }
 
-            // Step 2: Delete binaries
+            // Step 2: Stop Typesense if running
+            if typesenseProcess?.isRunning == true {
+                await typesenseProcess?.stop()
+            }
+
+            // Step 3: Delete binaries
             let binaryPath = FadogenPaths.typesenseBinaryPath
             if FileManager.default.fileExists(atPath: binaryPath.path) {
                 try FileManager.default.removeItem(at: binaryPath)
             }
 
-            // Step 3: Delete data directory (optional - user might want to keep data)
-            // For now, we keep the data directory for safety
+            // Step 4: Delete data directory
+            let dataPath = FadogenPaths.typesenseDataDirectory
+            if FileManager.default.fileExists(atPath: dataPath.path) {
+                try FileManager.default.removeItem(at: dataPath)
+            }
 
-            // Step 4: Delete SwiftData model
+            // Step 5: Delete SwiftData model
             modelContext.delete(versionToRemove)
             try modelContext.save()
 
-            // Step 5: Regenerate Caddy config (removes Typesense proxy)
+            // Step 6: Regenerate Caddy config (removes Typesense proxy)
             try caddyConfig?.generateMainCaddyfile()
 
-            // Step 6: Reload Caddy to apply updated configuration
+            // Step 7: Reload Caddy to apply updated configuration
             caddyConfig?.reloadCaddy()
 
         } catch {

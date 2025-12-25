@@ -21,6 +21,9 @@ final class AppServices {
     let reverbProcess: ReverbProcessManager
     let typesense: TypesenseManager
     let typesenseProcess: TypesenseProcessManager
+    let garage: GarageManager
+    let garageProcess: GarageProcessManager
+    let garageInitializer: GarageInitializer
     let mailpit: MailpitService
     let cloudflaredTunnel: CloudflaredTunnelService
     let quickTunnel: QuickTunnelService
@@ -45,6 +48,9 @@ final class AppServices {
         self.reverb = ReverbManager(modelContext: modelContext, reverbProcess: reverbProcess, caddyConfig: caddyConfig)
         self.typesenseProcess = TypesenseProcessManager(modelContext: modelContext)
         self.typesense = TypesenseManager(modelContext: modelContext, typesenseProcess: typesenseProcess, caddyConfig: caddyConfig)
+        self.garageProcess = GarageProcessManager(modelContext: modelContext)
+        self.garageInitializer = GarageInitializer(modelContext: modelContext)
+        self.garage = GarageManager(modelContext: modelContext, garageProcess: garageProcess, garageInitializer: garageInitializer, caddyConfig: caddyConfig)
         self.mailpit = MailpitService(modelContext: modelContext)
         self.cloudflaredTunnel = CloudflaredTunnelService(modelContext: modelContext, caddyConfig: caddyConfig)
         self.quickTunnel = QuickTunnelService(modelContext: modelContext)
@@ -58,6 +64,8 @@ final class AppServices {
         projectGenerator.reverbProcess = reverbProcess
         projectGenerator.typesenseManager = typesense
         projectGenerator.typesenseProcess = typesenseProcess
+        projectGenerator.garageManager = garage
+        projectGenerator.garageProcess = garageProcess
         projectGenerator.bunManager = bun
         projectGenerator.nodeManager = node
         projectGenerator.modelContext = modelContext
@@ -88,6 +96,7 @@ final class AppServices {
         async let servicesInit: Void = services.initialize()    // Load service metadata (independent)
         async let reverbInit: Void = reverb.initialize()        // Load Reverb config (independent)
         async let typesenseInit: Void = typesense.initialize()  // Load Typesense config (independent)
+        async let garageInit: Void = garage.initialize()        // Load Garage config (independent)
         async let watcherInit: Void = directoryWatcher.reconcile(syncCaddy: false)  // Scan sites (independent)
 
         // PHP initialization (creates bin/ directory and installs PHP)
@@ -114,6 +123,7 @@ final class AppServices {
         await servicesInit
         await reverbInit
         await typesenseInit
+        await garageInit
         await watcherInit
         await nodeInit
         await bunInit
@@ -131,6 +141,8 @@ final class AppServices {
         serviceProcesses.processCleanup = processCleanup
         reverbProcess.processCleanup = processCleanup
         typesenseProcess.processCleanup = processCleanup
+        garageProcess.processCleanup = processCleanup
+        garageProcess.garageInitializer = garageInitializer
         mailpit.processCleanup = processCleanup
         mailpit.caddyConfig = caddyConfig
         cloudflaredTunnel.processCleanup = processCleanup
@@ -192,6 +204,9 @@ final class AppServices {
         // Start Typesense if autoStart enabled
         await typesenseProcess.startAutoStartService()
 
+        // Start Garage if autoStart enabled
+        await garageProcess.startAutoStartService()
+
         // Start Mailpit if autoStart enabled
         await mailpit.startAutoStartService()
 
@@ -222,6 +237,9 @@ final class AppServices {
 
         // Stop Typesense if running
         await typesenseProcess.stop()
+
+        // Stop Garage if running
+        await garageProcess.stop()
 
         // Stop Mailpit if running
         await mailpit.stop()

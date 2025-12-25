@@ -1,9 +1,9 @@
 import SwiftUI
 import SwiftData
 
-/// Unified sheet for installing or editing Typesense configuration
-struct TypesenseSheet: View {
-    let existingVersion: TypesenseVersion?
+/// Unified sheet for installing or editing Garage configuration
+struct GarageSheet: View {
+    let existingVersion: GarageVersion?
 
     @Environment(\.dismiss) private var dismiss
     @Environment(AppServices.self) private var appServices
@@ -26,8 +26,8 @@ struct TypesenseSheet: View {
     }
 
     /// Initialize for editing
-    init(editing typesenseVersion: TypesenseVersion) {
-        self.existingVersion = typesenseVersion
+    init(editing garageVersion: GarageVersion) {
+        self.existingVersion = garageVersion
     }
 
     var body: some View {
@@ -41,7 +41,7 @@ struct TypesenseSheet: View {
             }
             .formStyle(.grouped)
             .scrollDisabled(true)
-            .navigationTitle(isEditing ? "Edit Typesense" : "Install Typesense")
+            .navigationTitle(isEditing ? "Edit Garage" : "Install Garage")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -83,7 +83,7 @@ struct TypesenseSheet: View {
     @ViewBuilder
     private var versionSection: some View {
         Section {
-            if let metadata = appServices.typesense.availableMetadata {
+            if let metadata = appServices.garage.availableMetadata {
                 LabeledContent("Version", value: metadata.latest)
             } else {
                 HStack {
@@ -100,7 +100,7 @@ struct TypesenseSheet: View {
     private var configurationSection: some View {
         Section {
             HStack {
-                Text("Port")
+                Text("S3 Port")
                 TextField("Port", text: $port)
                     .textFieldStyle(.roundedBorder)
                     .labelsHidden()
@@ -128,7 +128,7 @@ struct TypesenseSheet: View {
         } header: {
             Text("Configuration")
         } footer: {
-            Text("Port must be between 1024 and 65535. Multiple services can share the same port if they don't run simultaneously.")
+            Text("S3 API port. RPC will use port+1, Admin will use port+3.")
                 .foregroundStyle(.secondary)
         }
     }
@@ -138,16 +138,16 @@ struct TypesenseSheet: View {
     private var canSubmit: Bool {
         guard PortValidator.isValid(port) else { return false }
         if portConflict != nil { return false }
-        if !isEditing && appServices.typesense.availableMetadata == nil { return false }
+        if !isEditing && appServices.garage.availableMetadata == nil { return false }
         return true
     }
 
     private func initializeState() {
         if let version = existingVersion {
-            port = "\(version.port)"
+            port = "\(version.s3Port)"
             autoStart = version.autoStart
         } else {
-            port = "8108"
+            port = "3900"
             autoStart = true
         }
     }
@@ -159,7 +159,7 @@ struct TypesenseSheet: View {
             return
         }
 
-        portConflict = try? appServices.typesense.detectPortConflict(port: portNumber)
+        portConflict = try? appServices.garage.detectPortConflict(port: portNumber)
     }
 
     private func submit() {
@@ -177,8 +177,8 @@ struct TypesenseSheet: View {
 
         Task {
             do {
-                try await appServices.typesense.install(
-                    port: portNumber,
+                try await appServices.garage.install(
+                    s3Port: portNumber,
                     autoStart: autoStart
                 )
 
@@ -196,7 +196,7 @@ struct TypesenseSheet: View {
     }
 
     private func saveChanges() {
-        guard let typesenseVersion = existingVersion else { return }
+        guard let garageVersion = existingVersion else { return }
 
         let portNumber: Int
         do {
@@ -207,8 +207,8 @@ struct TypesenseSheet: View {
             return
         }
 
-        let portChanged = typesenseVersion.port != portNumber
-        typesenseVersion.autoStart = autoStart
+        let portChanged = garageVersion.s3Port != portNumber
+        garageVersion.autoStart = autoStart
 
         do {
             try modelContext.save()
@@ -217,7 +217,7 @@ struct TypesenseSheet: View {
                 isProcessing = true
                 Task {
                     do {
-                        try await appServices.typesense.updatePort(newPort: portNumber)
+                        try await appServices.garage.updatePort(newPort: portNumber)
                         dismiss()
                     } catch {
                         errorMessage = String(localized: "Failed to update port: \(error.localizedDescription)")
