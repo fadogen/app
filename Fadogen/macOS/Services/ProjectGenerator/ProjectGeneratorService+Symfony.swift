@@ -5,22 +5,22 @@ import Foundation
 extension ProjectGeneratorService {
     func symfonyGenerationSteps() -> [GenerationStep] {
         [
-            GenerationStep(name: "Creating Symfony project...", weight: 40) { [self] config, _ in
+            GenerationStep(name: String(localized: "Creating Symfony project..."), weight: 40) { [self] config, _ in
                 try await createSymfonyProject(config: config)
             },
-            GenerationStep(name: "Configuring environment...", weight: 15) { [self] config, projectPath in
+            GenerationStep(name: String(localized: "Configuring environment..."), weight: 15) { [self] config, projectPath in
                 try await configureSymfonyEnvironment(config: config, projectPath: projectPath!)
                 return projectPath
             },
-            GenerationStep(name: "Generating Docker configuration...", weight: 10) { [self] config, projectPath in
+            GenerationStep(name: String(localized: "Generating Docker configuration..."), weight: 10) { [self] config, projectPath in
                 try await generateSymfonyDockerFiles(config: config, projectPath: projectPath!)
                 return projectPath
             },
-            GenerationStep(name: "Creating production environment template...", weight: 5) { [self] config, projectPath in
+            GenerationStep(name: String(localized: "Creating production environment template..."), weight: 5) { [self] config, projectPath in
                 try await createSymfonyProductionEnvTemplate(projectPath: projectPath!, config: config)
                 return projectPath
             },
-            GenerationStep(name: "Initializing Git repository...", weight: 15) { [self] _, projectPath in
+            GenerationStep(name: String(localized: "Initializing Git repository..."), weight: 15) { [self] _, projectPath in
                 try await initializeGit(projectPath: projectPath!)
                 return projectPath
             }
