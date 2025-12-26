@@ -85,6 +85,12 @@ struct DevelopmentConfigurationView: View {
                     .buttonStyle(.link)
                 }
             }
+
+            if FileManager.default.fileExists(atPath: project.path) {
+                LabeledContent("Editor") {
+                    OpenInIDEButton(projectPath: project.path)
+                }
+            }
         }
 
         Section("Configuration") {
