@@ -322,14 +322,21 @@ final class DirectoryWatcherService {
         }
 
         // Re-detect framework if not detected initially
+        var frameworkDetected = false
         if project.framework == nil {
             if project.detectFramework() != nil {
                 needsSave = true
+                frameworkDetected = true
             }
         }
 
         if needsSave {
             try? modelContext.save()
+
+            // Regenerate Caddyfile if framework was just detected
+            if frameworkDetected {
+                caddyConfig.reconcile(project: project)
+            }
 
             // Try to auto-link with DeployedProject now that we have Git info
             if project.gitRemoteURL != nil {
