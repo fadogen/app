@@ -152,6 +152,12 @@ struct DetailView: View {
 
 struct SettingsView: View {
     @AppStorage(UpdaterDelegate.checkForBetaUpdatesKey) private var checkForBetaUpdates = false
+    @Query private var userPreferences: [UserPreferences]
+    @Environment(AppServices.self) private var services
+    @Environment(\.modelContext) private var modelContext
+
+    private var preferences: UserPreferences? { userPreferences.first }
+    private var installedIDEs: [IDE] { services.ideService.installedIDEs }
 
     private var currentLanguageName: String {
         let languageCode = Locale.current.safeLanguageCode
@@ -172,6 +178,27 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Editor") {
+                if installedIDEs.isEmpty {
+                    Text("No code editors detected")
+                        .foregroundStyle(.secondary)
+                } else {
+                    Picker("Default Editor", selection: Binding(
+                        get: { preferences?.preferredIDE },
+                        set: { setPreferredIDE($0) }
+                    )) {
+                        Text("None").tag(nil as IDE?)
+                        ForEach(installedIDEs) { ide in
+                            Text(ide.displayName).tag(ide as IDE?)
+                        }
+                    }
+                }
+
+                Text("Fadogen will use this editor when opening projects.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Updates") {
                 Toggle("Receive beta updates", isOn: $checkForBetaUpdates)
                 Text("When enabled, you'll receive alpha, beta, and release candidate versions in addition to stable releases.")
@@ -181,6 +208,19 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .navigationTitle("Settings")
+        .onAppear {
+            services.ideService.refreshDetection()
+        }
+    }
+
+    private func setPreferredIDE(_ ide: IDE?) {
+        if let prefs = preferences {
+            prefs.preferredIDE = ide
+        } else {
+            let newPrefs = UserPreferences(preferredIDE: ide)
+            modelContext.insert(newPrefs)
+        }
+        try? modelContext.save()
     }
 }
 

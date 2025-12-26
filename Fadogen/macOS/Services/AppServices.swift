@@ -30,6 +30,7 @@ final class AppServices {
     let directoryWatcher: DirectoryWatcherService
     let processCleanup: ProcessCleanupService
     let projectGenerator = ProjectGeneratorService()
+    let ideService = IDEService()
     let modelContext: ModelContext
 
     init(modelContext: ModelContext) {
