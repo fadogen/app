@@ -75,6 +75,9 @@ struct ProjectDeletionSheet: View {
     @State private var cachedGitHubOwner: String?
     @State private var cachedGitHubRepo: String?
     @State private var cachedIsDeploying = false
+    @State private var cachedTunnelID: String?
+    @State private var cachedTunnelIntegration: Integration?
+    @State private var cachedProductionDomain: String?
 
     // MARK: - Computed Properties
 
@@ -160,6 +163,12 @@ struct ProjectDeletionSheet: View {
             cachedGitHubOwner = deployedProject.githubOwner
             cachedGitHubRepo = deployedProject.githubRepo
             cachedIsDeploying = deployedProject.deploymentStatus == .deploying
+            cachedProductionDomain = deployedProject.productionDomain
+            if let server = deployedProject.server,
+               let tunnel = server.cloudflareTunnel {
+                cachedTunnelID = tunnel.tunnelID
+                cachedTunnelIntegration = tunnel.integration
+            }
         }
     }
 
@@ -496,6 +505,34 @@ struct ProjectDeletionSheet: View {
                     guard !protectedTypes.contains(record.type) else { continue }
 
                     try? await dnsManager.deleteRecord(record, in: zone)
+                }
+            }
+        }
+
+        // Phase 1.5: Remove Cloudflare Tunnel HTTP route
+        if let productionDomain = cachedProductionDomain,
+           let tunnelID = cachedTunnelID {
+
+            await MainActor.run {
+                deletionPhase = "Removing tunnel route..."
+            }
+
+            // Get integration from tunnel, or fallback to fetching Cloudflare integration
+            let integration: Integration? = cachedTunnelIntegration ?? allIntegrations.first { $0.type == .cloudflare }
+
+            if let integration,
+               let email = integration.credentials.email,
+               let apiKey = integration.credentials.globalAPIKey {
+
+                let cloudflareService = CloudflareService()
+                if let accountID = try? await cloudflareService.getAccountID(integration: integration) {
+                    try? await cloudflareService.removeHTTPRouteFromTunnel(
+                        tunnelID: tunnelID,
+                        hostname: productionDomain,
+                        accountID: accountID,
+                        email: email,
+                        apiKey: apiKey
+                    )
                 }
             }
         }
