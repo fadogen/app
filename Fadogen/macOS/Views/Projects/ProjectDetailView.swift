@@ -8,28 +8,6 @@ private struct ProjectToastData: Equatable {
     let isError: Bool
 }
 
-private func triggerGitHubDeployment(
-    deployedProject: DeployedProject,
-    integration: Integration
-) async -> String? {
-    guard let owner = deployedProject.githubOwner,
-          let repo = deployedProject.githubRepo,
-          let token = integration.credentials.token else { return nil }
-
-    do {
-        try await GitHubService().triggerWorkflowDispatch(
-            owner: owner,
-            repo: repo,
-            workflow: "deploy.yml",
-            ref: deployedProject.gitBranch ?? "main",
-            token: token
-        )
-        return nil
-    } catch {
-        return error.localizedDescription
-    }
-}
-
 private struct ProjectToastOverlay: ViewModifier {
     @Binding var toast: ProjectToastData?
 
@@ -88,7 +66,6 @@ struct ProjectDetailView: View {
     @State private var showingPathChangePicker = false
     @State private var showingAddIntegration: IntegrationType?
     @State private var showingGitHubPopover = false
-    @State private var showingDeployConfirmation = false
     @State private var showingDeleteSheet = false
     @State private var showProductionConfig = false
     @State private var showEnvEditor = false
@@ -210,19 +187,6 @@ struct ProjectDetailView: View {
         }
         .sheet(isPresented: $showingDeleteSheet) {
             deletionSheet
-        }
-        .alert("Deploy to Production", isPresented: $showingDeployConfirmation) {
-            Button("Cancel", role: .cancel) {}
-            Button("Deploy") {
-                if let integration = githubIntegration, let deployedProject = effectiveDeployedProject {
-                    triggerDeploy(deployedProject: deployedProject, integration: integration)
-                }
-            }
-        } message: {
-            if let deployedProject = effectiveDeployedProject, let repo = deployedProject.githubRepo {
-                let branch = deployedProject.gitBranch ?? "main"
-                Text("This will trigger a GitHub Actions deployment for \(repo) on branch \(branch).")
-            }
         }
         .task {
             await initializeView()
@@ -383,22 +347,6 @@ struct ProjectDetailView: View {
             }
         }
 
-        // Deploy button (if deployed + GitHub configured)
-        if let deployedProject = effectiveDeployedProject,
-           deployedProject.deploymentStatus == .deployed,
-           deployedProject.githubOwner != nil,
-           deployedProject.githubRepo != nil,
-           githubIntegration != nil {
-            ToolbarItem(placement: .automatic) {
-                Button {
-                    showingDeployConfirmation = true
-                } label: {
-                    Label("Deploy", systemImage: "arrow.up.circle.fill")
-                }
-                .help("Trigger GitHub Actions deployment")
-            }
-        }
-
         // Environment editor button (Production tab only, when env content exists)
         if selectedTab == .production, let deployedProject = effectiveDeployedProject, deployedProject.envProductionContent != nil {
             ToolbarItem(placement: .automatic) {
@@ -468,16 +416,6 @@ struct ProjectDetailView: View {
         } else {
             // Path doesn't exist, offer to relocate
             showingLocationPicker = true
-        }
-    }
-
-    private func triggerDeploy(deployedProject: DeployedProject, integration: Integration) {
-        Task {
-            if let error = await triggerGitHubDeployment(deployedProject: deployedProject, integration: integration) {
-                withAnimation { toast = ProjectToastData(message: error, isError: true) }
-            } else {
-                withAnimation { toast = ProjectToastData(message: "Deployment triggered successfully", isError: false) }
-            }
         }
     }
 
