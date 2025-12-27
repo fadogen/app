@@ -18,77 +18,90 @@ struct ProductionStatusView: View {
     }
 
     var body: some View {
-        Section(sectionTitle) {
-            switch deploymentStatus {
-            case .deploying, .failed:
-                // Deployment in progress or failed - show logs view
-                if let deployedProject = deployedProject {
-                    DeploymentLogsView(
-                        project: project,
-                        deployedProject: deployedProject,
-                        onRetry: onConfigureProduction
-                    )
-                }
+        Group {
+            Section(sectionTitle) {
+                switch deploymentStatus {
+                case .deploying, .failed:
+                    // Deployment in progress or failed - show logs view
+                    if let deployedProject = deployedProject {
+                        DeploymentLogsView(
+                            project: project,
+                            deployedProject: deployedProject,
+                            onRetry: onConfigureProduction
+                        )
+                    }
 
-            case .notDeployed:
-                // Check GitHub requirements before allowing deployment
-                VStack(spacing: 12) {
-                    if !isGitHubRepo {
-                        // State 1: No GitHub repository
-                        Label("GitHub Repository Required", systemImage: "exclamationmark.triangle")
-                            .font(.headline)
-                            .foregroundStyle(.orange)
+                case .notDeployed:
+                    // Check GitHub requirements before allowing deployment
+                    VStack(spacing: 12) {
+                        if !isGitHubRepo {
+                            // State 1: No GitHub repository
+                            Label("GitHub Repository Required", systemImage: "exclamationmark.triangle")
+                                .font(.headline)
+                                .foregroundStyle(.orange)
 
-                        Text("Initialize a Git repository with GitHub remote to deploy this project")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
+                            Text("Initialize a Git repository with GitHub remote to deploy this project")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
 
-                    } else if githubIntegration == nil {
-                        // State 2: GitHub repo without integration
-                        Label("GitHub Integration Required", systemImage: "exclamationmark.triangle")
-                            .font(.headline)
-                            .foregroundStyle(.orange)
+                        } else if githubIntegration == nil {
+                            // State 2: GitHub repo without integration
+                            Label("GitHub Integration Required", systemImage: "exclamationmark.triangle")
+                                .font(.headline)
+                                .foregroundStyle(.orange)
 
-                        Text("Add a GitHub integration to enable automated deployment")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
+                            Text("Add a GitHub integration to enable automated deployment")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
 
-                        Button {
-                            navigateToSection(.integrations)
-                        } label: {
-                            Label("Go to Integrations", systemImage: "arrow.right.circle.fill")
+                            Button {
+                                navigateToSection(.integrations)
+                            } label: {
+                                Label("Go to Integrations", systemImage: "arrow.right.circle.fill")
+                            }
+                            .buttonStyle(.borderedProminent)
+
+                        } else {
+                            // State 3: All GitHub prerequisites OK
+                            Label("No Server Linked", systemImage: "server.rack")
+                                .font(.headline)
+                                .foregroundStyle(.secondary)
+
+                            Text("Link this project to a server to deploy to production")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+
+                            Button {
+                                onConfigureProduction()
+                            } label: {
+                                Label("Link to Server", systemImage: "link")
+                            }
+                            .buttonStyle(.borderedProminent)
                         }
-                        .buttonStyle(.borderedProminent)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
 
-                    } else {
-                        // State 3: All GitHub prerequisites OK
-                        Label("No Server Linked", systemImage: "server.rack")
-                            .font(.headline)
-                            .foregroundStyle(.secondary)
-
-                        Text("Link this project to a server to deploy to production")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-
-                        Button {
-                            onConfigureProduction()
-                        } label: {
-                            Label("Link to Server", systemImage: "link")
-                        }
-                        .buttonStyle(.borderedProminent)
+                case .deployed:
+                    // Configured state - show visual cards
+                    if let deployedProject = deployedProject {
+                        deploymentStatusCards(deployedProject: deployedProject)
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
+            }
 
-            case .deployed:
-                // Configured state - show visual cards
-                if let deployedProject = deployedProject {
-                    deploymentStatusCards(deployedProject: deployedProject)
-                }
+            // GitHub Workflows section (separate from main section, only when deployed)
+            if deploymentStatus == .deployed,
+               let deployedProject = deployedProject,
+               deployedProject.githubOwner != nil,
+               let githubIntegration = githubIntegration {
+                GitHubWorkflowsSection(
+                    deployedProject: deployedProject,
+                    githubIntegration: githubIntegration
+                )
             }
         }
         .task {

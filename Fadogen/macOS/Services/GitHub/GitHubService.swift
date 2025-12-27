@@ -273,6 +273,17 @@ final class GitHubService {
         )
     }
 
+    /// Get the commit SHA for a branch/ref
+    func getCommitSHA(owner: String, repo: String, ref: String, token: String) async throws -> String {
+        let endpoint = "/repos/\(owner)/\(repo)/commits/\(ref)"
+        let commit: GitHubCommit = try await makeRequest(
+            endpoint: endpoint,
+            method: "GET",
+            token: token
+        )
+        return commit.sha
+    }
+
     func triggerWorkflowDispatch(
         owner: String,
         repo: String,
@@ -286,6 +297,35 @@ final class GitHubService {
 
         // POST returns 204 No Content on success
         _ = try await executeRequest(endpoint: endpoint, method: "POST", body: body, token: token)
+    }
+
+    // MARK: - Workflows
+
+    /// List active workflows in a repository
+    func listWorkflows(owner: String, repo: String, token: String) async throws -> [GitHubWorkflow] {
+        let endpoint = "/repos/\(owner)/\(repo)/actions/workflows"
+        let response: GitHubWorkflowsResponse = try await makeRequest(
+            endpoint: endpoint,
+            method: "GET",
+            token: token
+        )
+        return response.workflows.filter { $0.state == "active" }
+    }
+
+    /// List recent workflow runs
+    func listWorkflowRuns(owner: String, repo: String, perPage: Int = 10, token: String) async throws -> [GitHubWorkflowRun] {
+        let endpoint = "/repos/\(owner)/\(repo)/actions/runs?per_page=\(perPage)"
+        let data = try await executeRequest(endpoint: endpoint, method: "GET", token: token)
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        do {
+            let response = try decoder.decode(GitHubWorkflowRunsResponse.self, from: data)
+            return response.workflowRuns
+        } catch {
+            throw GitHubError.decodingFailed(error)
+        }
     }
 
     // MARK: - Private
@@ -303,6 +343,7 @@ final class GitHubService {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.timeoutInterval = 30.0
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("Fadogen/1.0 (macOS)", forHTTPHeaderField: "User-Agent")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 

@@ -39,3 +39,52 @@ struct GitHubPublicKey: Codable, Sendable {
         case key
     }
 }
+
+// MARK: - GitHub Workflow
+
+struct GitHubWorkflow: Codable, Sendable, Identifiable, Hashable {
+    let id: Int
+    let name: String
+    let path: String
+    let state: String  // "active", "disabled_manually", etc.
+}
+
+struct GitHubWorkflowsResponse: Codable, Sendable {
+    let workflows: [GitHubWorkflow]
+}
+
+// MARK: - GitHub Workflow Run
+
+struct GitHubWorkflowRun: Codable, Sendable, Identifiable {
+    let id: Int
+    let name: String?
+    let displayTitle: String?
+    let workflowId: Int
+    let headSha: String?     // Commit SHA that triggered this run
+    let status: String       // "queued", "in_progress", "completed"
+    let conclusion: String?  // "success", "failure", "cancelled", null
+    let createdAt: Date
+    let htmlUrl: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, status, conclusion
+        case displayTitle = "display_title"
+        case workflowId = "workflow_id"
+        case headSha = "head_sha"
+        case createdAt = "created_at"
+        case htmlUrl = "html_url"
+    }
+
+    /// Returns display_title if available, otherwise falls back to name
+    var title: String {
+        displayTitle ?? name ?? "Workflow Run"
+    }
+}
+
+struct GitHubWorkflowRunsResponse: Codable, Sendable {
+    let workflowRuns: [GitHubWorkflowRun]
+
+    enum CodingKeys: String, CodingKey {
+        case workflowRuns = "workflow_runs"
+    }
+}
